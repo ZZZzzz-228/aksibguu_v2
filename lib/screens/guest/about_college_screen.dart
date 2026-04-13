@@ -1762,7 +1762,7 @@ class SpecialtyDetailScreen extends StatelessWidget {
             decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [specialty.color, specialty.color.withOpacity(0.72)])),
             child: Stack(fit: StackFit.expand, children: [
               Image.asset(specialty.imagePath, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => const SizedBox()),
-              Container(color: specialty.color.withOpacity(0.45)),
+              Container(color: Colors.black.withOpacity(0.28)),
               Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                 const SizedBox(height: 40),
                 Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(16)), child: Icon(specialty.icon, color: Colors.white, size: 48)),
