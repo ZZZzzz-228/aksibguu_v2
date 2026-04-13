@@ -33,9 +33,6 @@ class _StudentMainScreenState extends State<StudentMainScreen> {
             ),
           ],
         ),
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).padding.bottom,
-        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(

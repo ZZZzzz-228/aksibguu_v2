@@ -29,9 +29,6 @@ class _GuestMainScreenState extends State<GuestMainScreen> {
             ),
           ],
         ),
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).padding.bottom,
-        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
