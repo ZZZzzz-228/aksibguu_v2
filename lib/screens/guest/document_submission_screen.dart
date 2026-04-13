@@ -34,6 +34,7 @@ class _DocumentSubmissionScreenState
 
   final Set<String> _selectedSpecialties = {};
   final List<PlatformFile> _attachedFiles = [];
+  bool _isPickingFiles = false;
   bool _isSubmitting = false;
   int _applicationId = 0;
   bool _submitted = false;
@@ -79,6 +80,8 @@ class _DocumentSubmissionScreenState
 
   // ── Открыть file_picker для выбора файлов ───────────────────────────────
   Future<void> _pickFiles() async {
+    if (_isPickingFiles) return;
+    _isPickingFiles = true;
     try {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
@@ -94,12 +97,24 @@ class _DocumentSubmissionScreenState
           }
         });
       }
+    } on PlatformException catch (e) {
+      // iOS/Android can throw "multiple_request" on rapid repeated taps.
+      if (e.code == 'multiple_request') {
+        return;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка выбора файла: ${e.message ?? e.code}')),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Ошибка выбора файла: $e')),
         );
       }
+    } finally {
+      _isPickingFiles = false;
     }
   }
 
@@ -415,7 +430,7 @@ class _DocumentSubmissionScreenState
 
               // Add file button — теперь открывает file_picker
               GestureDetector(
-                onTap: _pickFiles,
+                onTap: _isPickingFiles ? null : _pickFiles,
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
@@ -432,7 +447,9 @@ class _DocumentSubmissionScreenState
                           size: 44, color: Colors.grey[500]),
                       const SizedBox(height: 10),
                       Text(
-                        _attachedFiles.isEmpty
+                        _isPickingFiles
+                            ? 'Открываем выбор файлов...'
+                            : _attachedFiles.isEmpty
                             ? 'Нажмите, чтобы прикрепить файлы'
                             : 'Прикрепить ещё',
                         style: TextStyle(

@@ -19,6 +19,8 @@ class MyApp extends StatelessWidget {
         primaryColor: const Color(0xFF4A90E2),
         scaffoldBackgroundColor: Colors.white,
         fontFamily: 'Roboto',
+        useMaterial3: true,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.white,
           elevation: 0,
@@ -31,7 +33,45 @@ class MyApp extends StatelessWidget {
           systemOverlayStyle: SystemUiOverlayStyle.dark,
         ),
       ),
+      builder: (context, child) {
+        if (child == null) return const SizedBox.shrink();
+        return _AdaptiveViewport(child: child);
+      },
       home: const SplashScreen(),
+    );
+  }
+}
+
+class _AdaptiveViewport extends StatelessWidget {
+  const _AdaptiveViewport({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final media = MediaQuery.of(context);
+        final width = constraints.maxWidth;
+        final shortestSide = media.size.shortestSide;
+
+        final textScale = (shortestSide / 390).clamp(0.92, 1.08);
+        final isLargeScreen = width >= 700;
+        final contentWidth = isLargeScreen ? 560.0 : width;
+
+        return MediaQuery(
+          data: media.copyWith(textScaler: TextScaler.linear(textScale)),
+          child: ColoredBox(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: contentWidth),
+                child: child,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
