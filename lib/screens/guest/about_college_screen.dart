@@ -1568,7 +1568,9 @@ class _SpecialtyCard extends StatelessWidget {
                     errorFallback: Container(color: specialty.color),
                   ),
                 ),
-                Positioned.fill(child: Container(color: specialty.color.withOpacity(0.7))),
+                Positioned.fill(
+                  child: Container(color: Colors.black.withOpacity(0.28)),
+                ),
                 Padding(
                   // Правый отступ увеличен, чтобы код НЕ заходил под звёздочку
                   padding: const EdgeInsets.fromLTRB(18, 18, 60, 18),
