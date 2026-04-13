@@ -3,7 +3,7 @@
 return [
     'db' => [
         'host' => '127.0.0.1',
-        'port' => 3306,
+        'port' => 3308,
         'database' => 'career_center_ak_sibgu',
         'username' => 'root',
         'password' => '',
