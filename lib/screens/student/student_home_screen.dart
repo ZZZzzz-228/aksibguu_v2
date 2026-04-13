@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../data/api/api_client.dart';
+import '../../data/api/api_base_url.dart';
 import '../widgets/centered_app_bar_title.dart';
 class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key});
@@ -12,10 +13,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
   // Список просмотренных историй
   final Set<int> _viewedStories = {};
   final _apiClient = ApiClient(
-    baseUrl: const String.fromEnvironment(
-      'API_BASE_URL',
-      defaultValue: 'http://10.0.2.2:8081',
-    ),
+    baseUrl: resolveApiBaseUrl(),
   );
   late Future<List<NewsItem>> _newsFuture;
   late Future<List<StoryItem>> _storiesFuture;

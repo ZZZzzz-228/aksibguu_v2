@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/api/api_client.dart';
+import '../../data/api/api_base_url.dart';
 import '../../data/cache/guest_staff_cache.dart';
 import '../widgets/centered_app_bar_title.dart';
 class GuestContactsScreen extends StatefulWidget {
@@ -14,10 +15,7 @@ class GuestContactsScreen extends StatefulWidget {
 class _GuestContactsScreenState extends State<GuestContactsScreen> {
   final ScrollController _scrollController = ScrollController();
   final _apiClient = ApiClient(
-    baseUrl: const String.fromEnvironment(
-      'API_BASE_URL',
-      defaultValue: 'http://10.0.2.2:8081',
-    ),
+    baseUrl: resolveApiBaseUrl(),
   );
   bool _showMainTitle = false;
 

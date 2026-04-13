@@ -1,12 +1,10 @@
 import '../api/api_client.dart';
+import '../api/api_base_url.dart';
 
 class AppSession {
   AppSession._();
 
   static final ApiClient apiClient = ApiClient(
-    baseUrl: const String.fromEnvironment(
-      'API_BASE_URL',
-      defaultValue: 'http://10.0.2.2:8081',
-    ),
+    baseUrl: resolveApiBaseUrl(),
   );
 }

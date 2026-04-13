@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/api/api_client.dart';
+import '../../data/api/api_base_url.dart';
 import '../widgets/centered_app_bar_title.dart'; // ✅ Добавлен импорт
 
 class StudentVacanciesScreen extends StatefulWidget {
@@ -11,10 +12,7 @@ class StudentVacanciesScreen extends StatefulWidget {
 
 class _StudentVacanciesScreenState extends State<StudentVacanciesScreen> {
   final _apiClient = ApiClient(
-    baseUrl: const String.fromEnvironment(
-      'API_BASE_URL',
-      defaultValue: 'http://10.0.2.2:8081',
-    ),
+    baseUrl: resolveApiBaseUrl(),
   );
   final _searchController = TextEditingController();
   late Future<List<VacancyItem>> _vacanciesFuture;

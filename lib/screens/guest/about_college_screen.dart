@@ -442,7 +442,30 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
           salary: s.salary,
           imagePath: cms.imageUrl.isNotEmpty ? cms.imageUrl : s.imagePath,
         );
-      }).toList(growable: false);
+      }).toList(growable: true);
+
+      final existingCodes = specialties.map((s) => s.code.trim()).toSet();
+      final extraSpecialties = cmsSpecialties.where((s) => !existingCodes.contains(s.code.trim())).toList(growable: false);
+      for (final extra in extraSpecialties) {
+        mergedSpecialties.add(
+          Specialty(
+            id: extra.code,
+            title: extra.title.isNotEmpty ? extra.title : extra.code,
+            shortTitle: extra.title.isNotEmpty ? extra.title : extra.code,
+            code: extra.code,
+            description: extra.description,
+            duration: 'Уточняется',
+            form: 'Уточняется',
+            icon: Icons.school,
+            color: const Color(0xFF1565C0),
+            qualification: 'Уточняется',
+            career: 'Уточняется',
+            skills: 'Уточняется',
+            salary: 'Уточняется',
+            imagePath: extra.imageUrl.isNotEmpty ? extra.imageUrl : 'assets/images/application_logo/icon42.png',
+          ),
+        );
+      }
 
       final fallbackByName = <String, Partner>{
         for (final p in partners) p.name.trim(): p,
