@@ -1,0 +1,41 @@
+name: career_center_ak_sibgu
+description: Career Center AK SIBGU Mobile App
+publish_to: 'none'
+version: 1.0.0+1
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  url_launcher: ^6.2.4   # для открытия сайтов и ссылок
+  open_file: ^3.3.2       # для открытия PDF локально
+  file_picker: ^10.3.10     # для выбора файлов пользователем
+  path_provider: ^2.1.2   # для получения пути к директориям
+  flutter_file_dialog: ^3.0.2  # для сохранения файлов
+  http: ^1.2.2
+  shared_preferences: ^2.2.3
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_launcher_icons: ^0.13.1  # для настройки иконки приложения
+flutter:
+  uses-material-design: true
+  # Все необходимые ассеты
+  assets:
+    - assets/images/
+    - assets/images/application_logo/
+    - assets/images/college/
+    - assets/images/contacts/
+    - assets/images/education/
+    - assets/images/news/
+    - assets/images/partners/
+    - assets/images/specialties/
+    - assets/images/stories/
+    - assets/icons/guest/
+    - assets/icons/student/
+    - assets/docs/
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/application_logo/icon42.png"
