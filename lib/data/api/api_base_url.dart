@@ -17,7 +17,8 @@ String resolveApiBaseUrl() {
   }
 
   if (Platform.isIOS) {
-    return 'http://192.168.0.15:8081';
+    // Физический iPhone: IPv4 ПК в той же Wi‑Fi сети (см. ipconfig → «Беспроводная сеть»).
+    return 'http://172.20.10.3:8081';
   }
 
   return 'http://127.0.0.1:8081';

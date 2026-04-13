@@ -141,6 +141,63 @@ function isAdmin(): bool
     return hasRole('admin');
 }
 
+/**
+ * Определяет MIME загруженного файла без обязательного ext-fileinfo
+ * (на части сборок PHP под Windows нет mime_content_type() / finfo).
+ */
+function detect_uploaded_mime_from_path(string $path): string
+{
+    if ($path === '' || !is_readable($path)) {
+        return '';
+    }
+    $fromLib = '';
+    if (function_exists('mime_content_type')) {
+        $m = @mime_content_type($path);
+        if (is_string($m) && $m !== '' && strcasecmp($m, 'application/octet-stream') !== 0) {
+            $fromLib = strtolower(trim($m));
+        }
+    }
+    if ($fromLib === '' && class_exists('finfo')) {
+        $f = @new finfo(FILEINFO_MIME_TYPE);
+        if ($f instanceof finfo) {
+            $m = @$f->file($path);
+            if (is_string($m) && $m !== '' && strcasecmp($m, 'application/octet-stream') !== 0) {
+                $fromLib = strtolower(trim($m));
+            }
+        }
+    }
+    if ($fromLib !== '') {
+        return $fromLib;
+    }
+
+    $fh = @fopen($path, 'rb');
+    if ($fh === false) {
+        return '';
+    }
+    $head = (string)fread($fh, 16);
+    fclose($fh);
+    if ($head === '') {
+        return '';
+    }
+    $a = ord($head[0]);
+    $b = ord($head[1]);
+    $c = ord($head[2]);
+    if ($a === 0xFF && $b === 0xD8 && $c === 0xFF) {
+        return 'image/jpeg';
+    }
+    if (strlen($head) >= 8 && strncmp($head, "\x89PNG\r\n\x1a\n", 8) === 0) {
+        return 'image/png';
+    }
+    if (strlen($head) >= 12 && strncmp($head, 'RIFF', 4) === 0 && substr($head, 8, 4) === 'WEBP') {
+        return 'image/webp';
+    }
+    if (strncmp($head, '%PDF-', 5) === 0) {
+        return 'application/pdf';
+    }
+
+    return '';
+}
+
 function saveUploadedImage(string $fieldName): ?string
 {
     if (!isset($_FILES[$fieldName]) || !is_array($_FILES[$fieldName])) {
@@ -163,7 +220,7 @@ function saveUploadedImage(string $fieldName): ?string
         return null;
     }
 
-    $mime = mime_content_type($tmp) ?: '';
+    $mime = detect_uploaded_mime_from_path($tmp);
     $ext = match ($mime) {
         'image/jpeg' => 'jpg',
         'image/png' => 'png',
@@ -359,7 +416,7 @@ function saveApplicationUploadedFile(array $file): ?array
         return null;
     }
     $orig = (string)($file['name'] ?? 'file');
-    $mime = mime_content_type($tmp) ?: '';
+    $mime = detect_uploaded_mime_from_path($tmp);
     $ext = match ($mime) {
         'image/jpeg' => 'jpg',
         'image/png' => 'png',
