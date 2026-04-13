@@ -1,7 +1,10 @@
 <?php
 require __DIR__ . '/_bootstrap.php';
 requireLogin();
-requireAnyRole(['admin', 'staff']);
+if (!canManageContent()) {
+    flash('Недостаточно прав для раздела контента.');
+    redirectTo('/admin/index.php');
+}
 
 $title = 'Контент';
 $user = getCurrentUser();
@@ -15,6 +18,7 @@ require __DIR__ . '/_layout_top.php';
     <a class="tab isActive" href="/admin/content.php">Обзор</a>
     <a class="tab" href="/admin/news.php">Новости</a>
     <a class="tab" href="/admin/stories.php">Истории / мероприятия</a>
+    <a class="tab" href="/admin/guest_home.php">Главная гостя (блоки)</a>
     <a class="tab" href="/admin/specialties.php">Специальности</a>
     <a class="tab" href="/admin/pages.php">Страницы (CMS)</a>
     <a class="tab" href="/admin/contacts.php">Контакты (строки)</a>

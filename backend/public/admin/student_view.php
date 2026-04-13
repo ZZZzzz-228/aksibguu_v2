@@ -1,7 +1,10 @@
 <?php
 require __DIR__ . '/_bootstrap.php';
 requireLogin();
-requireAnyRole(['admin', 'staff']);
+if (!canManageAdmissions()) {
+    flash('Недостаточно прав для раздела студентов.');
+    redirectTo('/admin/index.php');
+}
 
 $id = (int)($_GET['id'] ?? 0);
 if ($id <= 0) {

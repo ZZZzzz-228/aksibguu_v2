@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/api/api_client.dart';
 import '../../data/session/app_session.dart';
+import '../../widgets/haptic_refresh_indicator.dart';
 
 class GuestApplicantScreen extends StatefulWidget {
   const GuestApplicantScreen({super.key});
@@ -23,19 +24,27 @@ class _GuestApplicantScreenState extends State<GuestApplicantScreen> {
     _partnersFuture = _api.fetchPartners();
   }
 
+  Future<void> _onRefresh() async {
+    final page = _api.fetchPageBySlug('about-college');
+    final specs = _api.fetchSpecialties();
+    final parts = _api.fetchPartners();
+    setState(() {
+      _pageFuture = page;
+      _specialtiesFuture = specs;
+      _partnersFuture = parts;
+    });
+    await Future.wait<void>([page, specs, parts]);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Абитуриентам')),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          setState(() {
-            _pageFuture = _api.fetchPageBySlug('about-college');
-            _specialtiesFuture = _api.fetchSpecialties();
-            _partnersFuture = _api.fetchPartners();
-          });
-        },
+      body: HapticRefreshIndicator(
+        color: const Color(0xFF4A90E2),
+        onRefresh: _onRefresh,
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
             FutureBuilder<PageContentItem?>(

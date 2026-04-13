@@ -4,6 +4,7 @@ requireLogin();
 requireRole('admin');
 $currentUser = getCurrentUser();
 $currentUserId = (int)($currentUser['id'] ?? 0);
+$adminRoleCodes = ['staff', 'admin', 'admissions', 'academic', 'content_manager'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -23,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Некорректный email.');
             redirectTo('/admin/users.php');
         }
-        if (!in_array($roleCode, ['staff', 'admin'], true)) {
+        if (!in_array($roleCode, $adminRoleCodes, true)) {
             flash('Недопустимая роль.');
             redirectTo('/admin/users.php');
         }
@@ -85,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'set_role') {
         $userId = (int)($_POST['user_id'] ?? 0);
         $roleCode = (string)($_POST['role_code'] ?? '');
-        if ($userId > 0 && in_array($roleCode, ['staff', 'admin'], true)) {
+        if ($userId > 0 && in_array($roleCode, $adminRoleCodes, true)) {
             if ($userId === $currentUserId && $roleCode !== 'admin') {
                 flash('Нельзя снять у себя роль admin.');
                 redirectTo('/admin/users.php');
@@ -98,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare(
                 'DELETE ur FROM user_roles ur
                  JOIN roles r ON r.id = ur.role_id
-                 WHERE ur.user_id = :user_id AND r.code IN (\'staff\', \'admin\')'
+                 WHERE ur.user_id = :user_id AND r.code IN (\'staff\', \'admin\', \'admissions\', \'academic\', \'content_manager\')'
             );
             $stmt->execute(['user_id' => $userId]);
 
@@ -180,6 +181,9 @@ if ($msg): ?><div class="flash"><?= h($msg) ?></div><?php endif; ?>
     <select name="role_code" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;margin-top:6px;margin-bottom:10px;">
       <option value="staff">staff</option>
       <option value="admin">admin</option>
+      <option value="admissions">admissions</option>
+      <option value="academic">academic</option>
+      <option value="content_manager">content_manager</option>
     </select>
     <button type="submit">Создать</button>
   </form>
@@ -212,6 +216,9 @@ if ($msg): ?><div class="flash"><?= h($msg) ?></div><?php endif; ?>
             <select name="role_code" style="padding:6px;border:1px solid #d1d5db;border-radius:6px;">
               <option value="staff" <?= str_contains((string)($row['roles'] ?? ''), 'staff') ? 'selected' : '' ?>>staff</option>
               <option value="admin" <?= str_contains((string)($row['roles'] ?? ''), 'admin') ? 'selected' : '' ?>>admin</option>
+              <option value="admissions" <?= str_contains((string)($row['roles'] ?? ''), 'admissions') ? 'selected' : '' ?>>admissions</option>
+              <option value="academic" <?= str_contains((string)($row['roles'] ?? ''), 'academic') ? 'selected' : '' ?>>academic</option>
+              <option value="content_manager" <?= str_contains((string)($row['roles'] ?? ''), 'content_manager') ? 'selected' : '' ?>>content_manager</option>
             </select>
             <button type="submit">Роль</button>
           </form>

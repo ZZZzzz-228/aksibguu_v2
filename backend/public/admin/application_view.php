@@ -1,7 +1,10 @@
 <?php
 require __DIR__ . '/_bootstrap.php';
 requireLogin();
-requireAnyRole(['admin', 'staff']);
+if (!canManageAdmissions()) {
+    flash('Недостаточно прав для раздела заявок.');
+    redirectTo('/admin/index.php');
+}
 
 try {
     $pdo->query('SELECT 1 FROM applications LIMIT 1');
@@ -17,6 +20,7 @@ function appStatusRu(string $s): string
         'processing' => 'В работе',
         'approved' => 'Принята',
         'rejected' => 'Отклонена',
+        'archived' => 'Архив',
         default => $s,
     };
 }

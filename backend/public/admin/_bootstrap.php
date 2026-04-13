@@ -123,7 +123,17 @@ function requireAnyRole(array $roles): void
 
 function canManageContent(): bool
 {
-    return hasAnyRole(['admin', 'staff']);
+    return hasAnyRole(['admin', 'staff', 'content_manager']);
+}
+
+function canManageAdmissions(): bool
+{
+    return hasAnyRole(['admin', 'staff', 'admissions']);
+}
+
+function canManageAcademic(): bool
+{
+    return hasAnyRole(['admin', 'staff', 'academic']);
 }
 
 function isAdmin(): bool

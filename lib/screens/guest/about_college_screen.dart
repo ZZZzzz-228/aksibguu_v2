@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../data/api/api_client.dart';
 import '../../data/session/app_session.dart';
 import '../widgets/centered_app_bar_title.dart';
+import '../../widgets/haptic_refresh_indicator.dart';
 import 'career_guidance_screen.dart';
 import 'document_submission_screen.dart';
 
@@ -538,6 +539,11 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
   }
   bool _isViewed(int index) => _viewedStories.contains(index);
   void _markAsViewed(int index) => setState(() => _viewedStories.add(index));
+
+  Future<void> _onRefresh() async {
+    await _loadCms();
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -555,24 +561,28 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          NestedScrollView(
-            controller: _scrollController,
-            headerSliverBuilder: (context, innerBoxIsScrolled) {
-              return [
-                SliverAppBar(
-                  pinned: true, floating: false, snap: false,
-                  elevation: 0, scrolledUnderElevation: 0,
-                  backgroundColor: Colors.transparent,
-                  surfaceTintColor: Colors.transparent,
-                  automaticallyImplyLeading: false,
-                  toolbarHeight: 74,
-                  flexibleSpace: _FrostedHeader(showCenterTitle: _showMainTitle),
-                ),
-              ];
-            },
-            body: ListView(
-              padding: EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 24),
-              children: [
+          HapticRefreshIndicator(
+            color: const Color(0xFF4A90E2),
+            onRefresh: _onRefresh,
+            child: NestedScrollView(
+              controller: _scrollController,
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                return [
+                  SliverAppBar(
+                    pinned: true, floating: false, snap: false,
+                    elevation: 0, scrolledUnderElevation: 0,
+                    backgroundColor: Colors.transparent,
+                    surfaceTintColor: Colors.transparent,
+                    automaticallyImplyLeading: false,
+                    toolbarHeight: 74,
+                    flexibleSpace: _FrostedHeader(showCenterTitle: _showMainTitle),
+                  ),
+                ];
+              },
+              body: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 24),
+                children: [
                 // ── 1) ИСТОРИИ ────────────────────────────────────────────────
                 SizedBox(
                   height: storyHeight,
@@ -786,6 +796,7 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
                 ),
               ],
             ),
+          ),
           ),
         ],
       ),
@@ -2394,14 +2405,24 @@ class _CollegeInfoScreenState extends State<CollegeInfoScreen> {
     _pageFuture = _api.fetchPageBySlug('about-college');
   }
 
+  Future<void> _onRefresh() async {
+    final f = _api.fetchPageBySlug('about-college');
+    setState(() => _pageFuture = f);
+    await f;
+  }
+
   @override
   Widget build(BuildContext context) {
     final baseUrl = AppSession.apiClient.baseUrl;
     return Scaffold(
       appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)), centerTitle: true, title: const Text('О колледже')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      body: HapticRefreshIndicator(
+        color: const Color(0xFF4A90E2),
+        onRefresh: _onRefresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // Фото колледжа
           Container(
             width: double.infinity, height: 180,
@@ -2522,6 +2543,7 @@ class _CollegeInfoScreenState extends State<CollegeInfoScreen> {
           const SizedBox(height: 32),
         ]),
       ),
+    ),
     );
   }
 }

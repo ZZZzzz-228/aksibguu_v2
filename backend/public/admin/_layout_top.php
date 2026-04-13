@@ -5,6 +5,8 @@ $layoutAuth = !empty($layoutAuth);
 $currentPath = (string)(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '');
 $isAdmin = function_exists('hasRole') && hasRole('admin');
 $isContent = function_exists('canManageContent') && canManageContent();
+$isAdmissions = function_exists('canManageAdmissions') && canManageAdmissions();
+$isAcademic = function_exists('canManageAcademic') && canManageAcademic();
 $newApps = 0;
 if (!$layoutAuth && function_exists('adminCountNewApplications') && isset($pdo)) {
     $newApps = adminCountNewApplications($pdo);
@@ -44,14 +46,14 @@ function navActive(string $currentPath, string $href): bool
         <span class="navIcon">▣</span> Дашборд
       </a>
 
-      <?php if ($isAdmin || $isContent): ?>
+      <?php if ($isAdmissions): ?>
         <a class="navLink <?= navActive($currentPath, '/admin/applications.php') ? 'isActive' : '' ?>" href="/admin/applications.php">
           <span class="navIcon">✉</span> Заявки
-          <?php if ($newApps > 0): ?><span class="badgeDot" title="Новые заявки"></span><?php endif; ?>
+          <span id="ccNewAppsDot" class="badgeDot" title="Новые заявки" style="<?= $newApps > 0 ? '' : 'display:none;' ?>"></span>
         </a>
       <?php endif; ?>
 
-      <?php if ($isAdmin || $isContent): ?>
+      <?php if ($isAdmissions): ?>
         <a class="navLink <?= navActive($currentPath, '/admin/students.php') ? 'isActive' : '' ?>" href="/admin/students.php">
           <span class="navIcon">👤</span> Студенты
         </a>
@@ -68,6 +70,21 @@ function navActive(string $currentPath, string $href): bool
           </a>
           <a class="navLink <?= navActive($currentPath, '/admin/vacancies.php') ? 'isActive' : '' ?>" href="/admin/vacancies.php">
             <span class="navIcon">💼</span> Вакансии
+          </a>
+        </div>
+      <?php endif; ?>
+
+      <?php if ($isAcademic): ?>
+        <div class="navSection">
+          <div class="navSectionTitle">Учебная часть</div>
+          <a class="navLink <?= navActive($currentPath, '/admin/groups.php') ? 'isActive' : '' ?>" href="/admin/groups.php">
+            <span class="navIcon">🎓</span> Группы
+          </a>
+          <a class="navLink <?= navActive($currentPath, '/admin/disciplines.php') ? 'isActive' : '' ?>" href="/admin/disciplines.php">
+            <span class="navIcon">📚</span> Дисциплины
+          </a>
+          <a class="navLink <?= navActive($currentPath, '/admin/curriculum.php') ? 'isActive' : '' ?>" href="/admin/curriculum.php">
+            <span class="navIcon">🗂</span> Учебные планы
           </a>
         </div>
       <?php endif; ?>
@@ -95,5 +112,53 @@ function navActive(string $currentPath, string $href): bool
       </div>
     </header>
     <div class="contentArea">
+
+<script>
+(() => {
+  const dot = document.getElementById('ccNewAppsDot');
+  if (!dot) return;
+
+  const currentPath = <?= json_encode($currentPath, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+  const pollUrl = '/admin/poll.php';
+  const intervalMs = 10000;
+
+  function getMaxApplicationIdFromPage() {
+    if (!currentPath.startsWith('/admin/applications.php')) return 0;
+    const rows = Array.from(document.querySelectorAll('tr.clickRow[data-href]'));
+    let maxId = 0;
+    for (const tr of rows) {
+      const href = tr.getAttribute('data-href') || '';
+      const m = href.match(/[?&]id=(\d+)/);
+      if (m) {
+        const id = Number(m[1]);
+        if (Number.isFinite(id) && id > maxId) maxId = id;
+      }
+    }
+    return maxId;
+  }
+
+  async function tick() {
+    try {
+      const res = await fetch(pollUrl, { cache: 'no-store', credentials: 'same-origin' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const count = Number(data && data.new_applications_count || 0);
+      dot.style.display = count > 0 ? '' : 'none';
+
+      if (currentPath.startsWith('/admin/applications.php')) {
+        const latestId = Number(data && data.latest_application_id || 0);
+        const maxId = getMaxApplicationIdFromPage();
+        if (latestId > 0 && latestId > maxId) {
+          window.location.reload();
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  setInterval(tick, intervalMs);
+})();
+</script>
 
 <?php endif; ?>

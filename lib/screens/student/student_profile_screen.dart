@@ -5,6 +5,7 @@ import '../../data/session/app_session.dart';
 import 'student_portfolio_screen.dart';
 import 'student_resume_screen.dart';
 import '../widgets/centered_app_bar_title.dart';
+import '../../widgets/haptic_refresh_indicator.dart';
 
 class StudentProfileScreen extends StatefulWidget {
   const StudentProfileScreen({super.key});
@@ -23,6 +24,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
     _profileFuture = _api.fetchStudentProfile();
   }
 
+  Future<void> _onRefresh() async {
+    final f = _api.fetchStudentProfile();
+    setState(() => _profileFuture = f);
+    await f;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -32,9 +39,13 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
         title: const CenteredAppBarTitle(),
       ),
 
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      body: HapticRefreshIndicator(
+        color: const Color(0xFF4A90E2),
+        onRefresh: _onRefresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
           children: [
             // Аватар и информация о студенте
             const CircleAvatar(
@@ -125,6 +136,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
               isLogout: true,
             ),
           ],
+        ),
         ),
       ),
     );

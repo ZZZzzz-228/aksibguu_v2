@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/api/api_client.dart';
 import '../../data/api/api_base_url.dart';
 import '../widgets/centered_app_bar_title.dart'; // ✅ Добавлен импорт
+import '../../widgets/haptic_refresh_indicator.dart';
 
 class StudentVacanciesScreen extends StatefulWidget {
   const StudentVacanciesScreen({super.key});
@@ -35,6 +36,12 @@ class _StudentVacanciesScreenState extends State<StudentVacanciesScreen> {
     });
   }
 
+  Future<void> _onRefresh() async {
+    final f = _apiClient.fetchVacancies(query: _searchController.text);
+    setState(() => _vacanciesFuture = f);
+    await f;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,7 +61,7 @@ class _StudentVacanciesScreenState extends State<StudentVacanciesScreen> {
                     controller: _searchController,
                     onSubmitted: (_) => _search(),
                     decoration: InputDecoration(
-                      hintText: 'хуй',
+                      hintText: 'Поиск по названию',
                       prefixIcon: const Icon(Icons.search),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -90,36 +97,54 @@ class _StudentVacanciesScreenState extends State<StudentVacanciesScreen> {
 
           // Список вакансий
           Expanded(
-            child: FutureBuilder<List<VacancyItem>>(
-              future: _vacanciesFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
+            child: HapticRefreshIndicator(
+              color: const Color(0xFF4A90E2),
+              onRefresh: _onRefresh,
+              child: FutureBuilder<List<VacancyItem>>(
+                future: _vacanciesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 120),
+                        Center(child: CircularProgressIndicator()),
+                      ],
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.all(16),
-                      child: Text('Ошибка загрузки вакансий: ${snapshot.error}'),
-                    ),
+                      children: [
+                        Text('Ошибка загрузки вакансий: ${snapshot.error}'),
+                      ],
+                    );
+                  }
+
+                  final vacancies = snapshot.data ?? const <VacancyItem>[];
+                  if (vacancies.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 80),
+                        Center(child: Text('Вакансии не найдены')),
+                      ],
+                    );
+                  }
+
+                  return ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: vacancies.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final vacancy = vacancies[index];
+                      return _buildVacancyCard(vacancy);
+                    },
                   );
-                }
-
-                final vacancies = snapshot.data ?? const <VacancyItem>[];
-                if (vacancies.isEmpty) {
-                  return const Center(child: Text('Вакансии не найдены'));
-                }
-
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: vacancies.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final vacancy = vacancies[index];
-                    return _buildVacancyCard(vacancy);
-                  },
-                );
-              },
+                },
+              ),
             ),
           ),
         ],

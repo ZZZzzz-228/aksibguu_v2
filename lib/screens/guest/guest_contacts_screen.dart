@@ -7,6 +7,7 @@ import '../../data/api/api_client.dart';
 import '../../data/api/api_base_url.dart';
 import '../../data/cache/guest_staff_cache.dart';
 import '../widgets/centered_app_bar_title.dart';
+import '../../widgets/haptic_refresh_indicator.dart';
 class GuestContactsScreen extends StatefulWidget {
   const GuestContactsScreen({super.key});
   @override
@@ -67,6 +68,10 @@ class _GuestContactsScreenState extends State<GuestContactsScreen> {
       });
     }
   }
+  Future<void> _onRefresh() async {
+    await _loadStaff();
+  }
+
   void _onScroll() {
     final shouldShow = _scrollController.offset > 10;
     if (shouldShow != _showMainTitle) setState(() => _showMainTitle = shouldShow);
@@ -97,9 +102,13 @@ class _GuestContactsScreenState extends State<GuestContactsScreen> {
                 ),
               ];
             },
-            body: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-              children: [
+            body: HapticRefreshIndicator(
+              color: const Color(0xFF4A90E2),
+              onRefresh: _onRefresh,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                children: [
                 // Основная информационная карточка
                 Container(
                   width: double.infinity,
@@ -227,6 +236,7 @@ class _GuestContactsScreenState extends State<GuestContactsScreen> {
                 const SizedBox(height: 24),
                 _buildStaffSection(),
               ],
+            ),
             ),
           ),
         ],

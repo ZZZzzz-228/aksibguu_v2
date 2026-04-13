@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/centered_app_bar_title.dart'; // ✅ Добавлен импорт
+import '../../widgets/haptic_refresh_indicator.dart';
 
 class StudentScheduleScreen extends StatefulWidget {
   const StudentScheduleScreen({super.key});
@@ -23,6 +24,8 @@ class _StudentScheduleScreenState extends State<StudentScheduleScreen>
     _tabController.dispose();
     super.dispose();
   }
+
+  Future<void> _onRefresh() async {}
 
   @override
   Widget build(BuildContext context) {
@@ -60,9 +63,13 @@ class _StudentScheduleScreenState extends State<StudentScheduleScreen>
   }
 
   Widget _buildBellSchedule() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
+    return HapticRefreshIndicator(
+      color: const Color(0xFF4A90E2),
+      onRefresh: _onRefresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
@@ -96,6 +103,7 @@ class _StudentScheduleScreenState extends State<StudentScheduleScreen>
           _buildScheduleItem('3', '3 Лента', '12:00 - 13:35'),
           _buildScheduleItem('4', '4 Лента', '13:45 - 15:20'),
         ],
+      ),
       ),
     );
   }
@@ -146,9 +154,13 @@ class _StudentScheduleScreenState extends State<StudentScheduleScreen>
   }
 
   Widget _buildGroupSchedule() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
+    return HapticRefreshIndicator(
+      color: const Color(0xFF4A90E2),
+      onRefresh: _onRefresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
         children: [
           Wrap(
             spacing: 8,
@@ -245,6 +257,7 @@ class _StudentScheduleScreenState extends State<StudentScheduleScreen>
             'Мустыгина Е.С.',
           ),
         ],
+      ),
       ),
     );
   }

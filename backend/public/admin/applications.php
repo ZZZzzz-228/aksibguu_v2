@@ -1,7 +1,10 @@
 <?php
 require __DIR__ . '/_bootstrap.php';
 requireLogin();
-requireAnyRole(['admin', 'staff']);
+if (!canManageAdmissions()) {
+    flash('Недостаточно прав для раздела заявок.');
+    redirectTo('/admin/index.php');
+}
 
 try {
     $pdo->query('SELECT 1 FROM applications LIMIT 1');
@@ -19,6 +22,7 @@ function appStatusRu(string $s): string
         'processing' => 'В работе',
         'approved' => 'Принята',
         'rejected' => 'Отклонена',
+        'archived' => 'Архив',
         default => $s,
     };
 }
@@ -37,6 +41,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->exec('UPDATE applications SET status = "processing" WHERE id IN (' . $in . ') AND status = "new"');
             auditLog($pdo, 'bulk_processing', 'application', implode(',', $ids), ['count' => count($ids)]);
             flash('Выбранные заявки переведены в работу.');
+        }
+        redirectTo('/admin/applications.php');
+    }
+    if ($action === 'set_status') {
+        $id = (int)($_POST['id'] ?? 0);
+        $newStatus = (string)($_POST['new_status'] ?? '');
+        $allowed = ['processing', 'archived', 'new'];
+        if ($id > 0 && in_array($newStatus, $allowed, true)) {
+            $stmt = $pdo->prepare('UPDATE applications SET status = :status WHERE id = :id');
+            $stmt->execute(['status' => $newStatus, 'id' => $id]);
+            auditLog($pdo, 'set_status_quick', 'application', (string)$id, ['status' => $newStatus]);
+            flash('Статус обновлён.');
+        }
+        redirectTo('/admin/applications.php');
+    }
+    if ($action === 'delete_one') {
+        if (!isAdmin()) {
+            flash('Удаление заявок доступно только администратору.');
+            redirectTo('/admin/applications.php');
+        }
+        $deleteId = (int)($_POST['delete_id'] ?? 0);
+        if ($deleteId > 0) {
+            $pdo->prepare('DELETE FROM applications WHERE id = :id')->execute(['id' => $deleteId]);
+            auditLog($pdo, 'delete', 'application', (string)$deleteId, null);
+            flash('Заявка удалена.');
         }
         redirectTo('/admin/applications.php');
     }
@@ -70,6 +99,10 @@ if ($type !== '' && in_array($type, ['documents', 'courses'], true)) {
     $params['type'] = $type;
 }
 if ($status !== '' && in_array($status, ['new', 'processing', 'approved', 'rejected'], true)) {
+    $where[] = 'a.status = :status';
+    $params['status'] = $status;
+}
+if ($status !== '' && in_array($status, ['archived'], true)) {
     $where[] = 'a.status = :status';
     $params['status'] = $status;
 }
@@ -140,7 +173,7 @@ if ($msg): ?><div class="flash"><?= h($msg) ?></div><?php endif; ?>
       <label>Статус</label>
       <select name="status">
         <option value="">Все</option>
-        <?php foreach (['new', 'processing', 'approved', 'rejected'] as $st): ?>
+        <?php foreach (['new', 'processing', 'approved', 'rejected', 'archived'] as $st): ?>
           <option value="<?= h($st) ?>" <?= $status === $st ? 'selected' : '' ?>><?= h(appStatusRu($st)) ?></option>
         <?php endforeach; ?>
       </select>
@@ -235,6 +268,7 @@ if ($msg): ?><div class="flash"><?= h($msg) ?></div><?php endif; ?>
           <th>Специальность</th>
           <th>Статус</th>
           <th>Тип</th>
+          <th>Действия</th>
         </tr>
         </thead>
         <tbody>
@@ -263,11 +297,35 @@ if ($msg): ?><div class="flash"><?= h($msg) ?></div><?php endif; ?>
               <span class="<?= h($cls) ?>"><?= h(appStatusRu((string)$row['status'])) ?></span>
             </td>
             <td><?= $row['type'] === 'courses' ? 'Курсы' : 'Документы' ?></td>
+            <td onclick="event.stopPropagation();" style="white-space:nowrap;">
+              <?php if ($row['status'] === 'new'): ?>
+                <button type="submit" name="action" value="set_status" class="btn btnGhost" onclick="this.form.id.value='<?= (int)$row['id'] ?>'; this.form.new_status.value='processing';">В работу</button>
+              <?php endif; ?>
+              <?php if ($row['status'] !== 'archived'): ?>
+                <button type="submit" name="action" value="set_status" class="btn btnGhost" onclick="this.form.id.value='<?= (int)$row['id'] ?>'; this.form.new_status.value='archived';">В архив</button>
+              <?php else: ?>
+                <button type="submit" name="action" value="set_status" class="btn btnGhost" onclick="this.form.id.value='<?= (int)$row['id'] ?>'; this.form.new_status.value='new';">Восстановить</button>
+              <?php endif; ?>
+              <?php if (hasRole('admin')): ?>
+                <button
+                  type="submit"
+                  name="action"
+                  value="delete_one"
+                  class="danger"
+                  onclick="this.form.delete_id.value='<?= (int)$row['id'] ?>'; return confirm('Удалить заявку #<?= (int)$row['id'] ?>?');"
+                >
+                  Удалить
+                </button>
+              <?php endif; ?>
+            </td>
           </tr>
         <?php endforeach; ?>
         </tbody>
       </table>
     </div>
+    <input type="hidden" name="delete_id" value="">
+    <input type="hidden" name="id" value="">
+    <input type="hidden" name="new_status" value="">
   </div>
 </form>
 

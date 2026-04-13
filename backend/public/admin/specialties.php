@@ -1,11 +1,15 @@
 <?php
 require __DIR__ . '/_bootstrap.php';
 requireLogin();
-requireAnyRole(['admin', 'staff']);
+if (!canManageContent()) {
+    flash('Недостаточно прав для раздела контента.');
+    redirectTo('/admin/index.php');
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if ($action === 'save') {
+        requireCsrf();
         $id = (int)($_POST['id'] ?? 0);
         $code = trim((string)($_POST['code'] ?? ''));
         $titleValue = trim((string)($_POST['title'] ?? ''));
@@ -14,6 +18,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $imageUrl = trim((string)($_POST['image_url'] ?? ''));
         $sortOrder = (int)($_POST['sort_order'] ?? 0);
         $isPublished = isset($_POST['is_published']) ? 1 : 0;
+        $publishFrom = trim((string)($_POST['publish_from'] ?? ''));
+        $publishTo = trim((string)($_POST['publish_to'] ?? ''));
+        $publishFromSql = $publishFrom !== '' ? str_replace('T', ' ', $publishFrom) . ':00' : null;
+        $publishToSql = $publishTo !== '' ? str_replace('T', ' ', $publishTo) . ':00' : null;
         $croppedImageData = (string)($_POST['cropped_image_data'] ?? '');
         if ($croppedImageData !== '') {
             $saved = saveBase64Image($croppedImageData);
@@ -35,7 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($id > 0) {
             $stmt = $pdo->prepare(
                 'UPDATE specialties
-                 SET code=:code, title=:title, description=:description, icon_name=:icon_name, image_url=:image_url, sort_order=:sort_order, is_published=:is_published
+                 SET code=:code, title=:title, description=:description, icon_name=:icon_name, image_url=:image_url, sort_order=:sort_order, is_published=:is_published,
+                     publish_from=:publish_from, publish_to=:publish_to
                  WHERE id=:id'
             );
             $stmt->execute([
@@ -47,6 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'image_url' => $imageUrl !== '' ? $imageUrl : null,
                 'sort_order' => $sortOrder,
                 'is_published' => $isPublished,
+                'publish_from' => $publishFromSql,
+                'publish_to' => $publishToSql,
             ]);
             auditLog($pdo, 'update', 'specialty', (string)$id, ['code' => $code, 'title' => $titleValue]);
             flash('Специальность обновлена.');
@@ -65,11 +76,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'is_published' => $isPublished,
             ]);
             $newId = (int)$pdo->lastInsertId();
+            $pdo->prepare('UPDATE specialties SET publish_from=:pf, publish_to=:pt WHERE id=:id')->execute([
+                'pf' => $publishFromSql,
+                'pt' => $publishToSql,
+                'id' => $newId,
+            ]);
             auditLog($pdo, 'create', 'specialty', (string)$newId, ['code' => $code, 'title' => $titleValue]);
             flash('Специальность добавлена.');
         }
     }
     if ($action === 'delete') {
+        requireCsrf();
         if (!isAdmin()) {
             flash('Удаление доступно только администратору.');
             redirectTo('/admin/specialties.php');
@@ -103,7 +120,12 @@ if ($msg): ?><div class="flash"><?= h($msg) ?></div><?php endif; ?>
 
 <div class="card">
   <h2 style="margin-top:0;"><?= $editItem ? 'Редактировать специальность' : 'Добавить специальность' ?></h2>
+  <?php
+    $publishFromValue = !empty($editItem['publish_from']) ? str_replace(' ', 'T', substr((string)$editItem['publish_from'], 0, 16)) : '';
+    $publishToValue = !empty($editItem['publish_to']) ? str_replace(' ', 'T', substr((string)$editItem['publish_to'], 0, 16)) : '';
+  ?>
   <form method="post" enctype="multipart/form-data">
+    <?= csrfField() ?>
     <input type="hidden" name="action" value="save">
     <input type="hidden" name="id" value="<?= (int)($editItem['id'] ?? 0) ?>">
     <label>Код</label>
@@ -125,6 +147,16 @@ if ($msg): ?><div class="flash"><?= h($msg) ?></div><?php endif; ?>
     <label>Порядок</label>
     <input type="number" name="sort_order" value="<?= (int)($editItem['sort_order'] ?? 0) ?>">
     <label><input type="checkbox" name="is_published" <?= ($editItem === null || !empty($editItem['is_published'])) ? 'checked' : '' ?>> Опубликовано</label>
+    <div class="grid2">
+      <div>
+        <label>Публиковать с (планировщик)</label>
+        <input type="datetime-local" name="publish_from" value="<?= h($publishFromValue) ?>">
+      </div>
+      <div>
+        <label>Публиковать по (опционально)</label>
+        <input type="datetime-local" name="publish_to" value="<?= h($publishToValue) ?>">
+      </div>
+    </div>
     <br><br>
     <button type="submit">Сохранить</button>
   </form>
@@ -147,6 +179,7 @@ if ($msg): ?><div class="flash"><?= h($msg) ?></div><?php endif; ?>
           <a href="/admin/specialties.php?edit=<?= (int)$row['id'] ?>">Редактировать</a>
           <?php if ($canDelete): ?>
             <form method="post" style="display:inline;">
+              <?= csrfField() ?>
               <input type="hidden" name="action" value="delete">
               <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
               <button class="danger" type="submit" onclick="return confirm('Удалить специальность?')">Удалить</button>

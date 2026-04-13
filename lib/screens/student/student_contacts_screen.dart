@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../data/api/api_client.dart';
 import '../../data/api/api_base_url.dart';
 import '../widgets/centered_app_bar_title.dart';
+import '../../widgets/haptic_refresh_indicator.dart';
 
 class StudentContactsScreen extends StatefulWidget {
   const StudentContactsScreen({super.key});
@@ -24,6 +25,12 @@ class _StudentContactsScreenState extends State<StudentContactsScreen> {
     _contactsFuture = _apiClient.fetchContacts();
   }
 
+  Future<void> _onRefresh() async {
+    final f = _apiClient.fetchContacts();
+    setState(() => _contactsFuture = f);
+    await f;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -31,8 +38,12 @@ class _StudentContactsScreenState extends State<StudentContactsScreen> {
         centerTitle: true,
         title: const CenteredAppBarTitle(), // ✅ Новый компонент шапки
       ),
-      body: SingleChildScrollView(
-        child: Column(
+      body: HapticRefreshIndicator(
+        color: const Color(0xFF4A90E2),
+        onRefresh: _onRefresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
           children: [
             Container(
               width: double.infinity,
@@ -288,6 +299,7 @@ class _StudentContactsScreenState extends State<StudentContactsScreen> {
             ),
             const SizedBox(height: 24),
           ],
+        ),
         ),
       ),
     );

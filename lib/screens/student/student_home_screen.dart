@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../data/api/api_client.dart';
 import '../../data/api/api_base_url.dart';
 import '../widgets/centered_app_bar_title.dart';
+import '../../widgets/haptic_refresh_indicator.dart';
 class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key});
   @override
@@ -33,6 +34,18 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
   bool _isViewed(int index) {
     return _viewedStories.contains(index);
   }
+
+  Future<void> _onRefresh() async {
+    final news = _apiClient.fetchNews();
+    final stories = _apiClient.fetchStories();
+    if (!mounted) return;
+    setState(() {
+      _newsFuture = news;
+      _storiesFuture = stories;
+    });
+    await Future.wait<void>([news, stories]);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -40,9 +53,13 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
         centerTitle: true,
         title: const CenteredAppBarTitle(),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
+      body: HapticRefreshIndicator(
+        color: const Color(0xFF4A90E2),
+        onRefresh: _onRefresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            children: [
             const SizedBox(height: 16),
             // ЛЕНТА ИСТОРИЙ (STORIES) - ПРЯМОУГОЛЬНИКИ
             SizedBox(
@@ -123,7 +140,8 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
               },
             ),
             const SizedBox(height: 24),
-          ],
+            ],
+          ),
         ),
       ),
     );

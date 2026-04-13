@@ -165,6 +165,8 @@ if ($method === 'GET' && $path === '/news') {
         'SELECT id, title, content, image_url, published_at
          FROM news_items
          WHERE is_published = 1
+           AND (publish_from IS NULL OR publish_from <= NOW())
+           AND (publish_to IS NULL OR publish_to >= NOW())
          ORDER BY published_at DESC, id DESC'
     );
     Response::json(['ok' => true, 'data' => $stmt->fetchAll()]);
@@ -175,6 +177,8 @@ if ($method === 'GET' && $path === '/stories') {
         'SELECT id, title, content, image_url, sort_order
          FROM stories
          WHERE is_published = 1
+           AND (publish_from IS NULL OR publish_from <= NOW())
+           AND (publish_to IS NULL OR publish_to >= NOW())
          ORDER BY sort_order ASC, id ASC'
     );
     Response::json(['ok' => true, 'data' => $stmt->fetchAll()]);
@@ -223,6 +227,8 @@ if ($method === 'GET' && $path === '/public/pages') {
         'SELECT id, slug, title, audience, content_json, cover_image_url
          FROM pages
          WHERE is_published = 1
+           AND (publish_from IS NULL OR publish_from <= NOW())
+           AND (publish_to IS NULL OR publish_to >= NOW())
            AND (audience = :audience OR audience = "common")
          ORDER BY id DESC'
     );
@@ -235,7 +241,10 @@ if ($method === 'GET' && preg_match('#^/public/pages/([a-z0-9\-]+)$#', $path, $m
     $stmt = $pdo->prepare(
         'SELECT id, slug, title, audience, content_json, cover_image_url
          FROM pages
-         WHERE slug = :slug AND is_published = 1
+         WHERE slug = :slug
+           AND is_published = 1
+           AND (publish_from IS NULL OR publish_from <= NOW())
+           AND (publish_to IS NULL OR publish_to >= NOW())
          LIMIT 1'
     );
     $stmt->execute(['slug' => $slug]);
@@ -251,9 +260,24 @@ if ($method === 'GET' && $path === '/public/specialties') {
         'SELECT id, code, title, description, icon_name, image_url
          FROM specialties
          WHERE is_published = 1
+           AND (publish_from IS NULL OR publish_from <= NOW())
+           AND (publish_to IS NULL OR publish_to >= NOW())
          ORDER BY sort_order ASC, id ASC'
     );
     Response::json(['ok' => true, 'data' => $stmt->fetchAll()]);
+}
+
+if ($method === 'GET' && $path === '/public/home/blocks') {
+    try {
+        $stmt = $pdo->prepare('SELECT `value` FROM site_settings WHERE `key` = :k LIMIT 1');
+        $stmt->execute(['k' => 'guest_home_blocks_json']);
+        $raw = $stmt->fetchColumn();
+        $decoded = is_string($raw) ? json_decode($raw, true) : null;
+        $blocks = is_array($decoded) ? $decoded : [];
+        Response::json(['ok' => true, 'data' => $blocks]);
+    } catch (Throwable $e) {
+        Response::json(['ok' => true, 'data' => []]);
+    }
 }
 
 if ($method === 'GET' && $path === '/public/partners') {
