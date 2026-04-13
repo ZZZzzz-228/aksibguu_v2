@@ -373,7 +373,12 @@ if ($method === 'POST' && $path === '/public/applications') {
         $stmt->execute($execParams);
         $id = (int)$pdo->lastInsertId();
 
-        if (stripos($ct, 'multipart/form-data') !== false && !empty($_FILES['files']) && is_array($_FILES['files']['name'])) {
+        if (
+            stripos($ct, 'multipart/form-data') !== false
+            && applicationsFilesTableExists($pdo)
+            && !empty($_FILES['files'])
+            && is_array($_FILES['files']['name'])
+        ) {
             $names = $_FILES['files']['name'];
             if (!is_array($names)) {
                 $names = [$names];
@@ -406,6 +411,7 @@ if ($method === 'POST' && $path === '/public/applications') {
 
         Response::json(['ok' => true, 'id' => $id], 201);
     } catch (Throwable $e) {
+        error_log('Could not save application: ' . $e->getMessage());
         Response::json(['ok' => false, 'message' => 'Could not save application'], 503);
     }
 }
@@ -765,7 +771,7 @@ function savePublicApplicationFile(array $file): ?array
         return null;
     }
     $orig = (string)($file['name'] ?? 'file');
-    $mime = @mime_content_type($tmp) ?: '';
+    $mime = detectUploadedMimeType($tmp, $orig, (string)($file['type'] ?? ''));
     $ext = match ($mime) {
         'image/jpeg' => 'jpg',
         'image/png' => 'png',
@@ -791,6 +797,49 @@ function savePublicApplicationFile(array $file): ?array
         'mime' => $mime,
         'size_bytes' => $size,
     ];
+}
+
+function detectUploadedMimeType(string $tmpPath, string $originalName, string $browserMime): string
+{
+    if (function_exists('mime_content_type')) {
+        $m = @mime_content_type($tmpPath);
+        if (is_string($m) && $m !== '') {
+            return $m;
+        }
+    }
+    if (function_exists('finfo_open')) {
+        $finfo = @finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo !== false) {
+            $m = @finfo_file($finfo, $tmpPath);
+            @finfo_close($finfo);
+            if (is_string($m) && $m !== '') {
+                return $m;
+            }
+        }
+    }
+    $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+    return match ($ext) {
+        'jpg', 'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        'pdf' => 'application/pdf',
+        default => $browserMime,
+    };
+}
+
+function applicationsFilesTableExists(PDO $pdo): bool
+{
+    static $exists = null;
+    if ($exists !== null) {
+        return $exists;
+    }
+    try {
+        $stmt = $pdo->query("SHOW TABLES LIKE 'application_files'");
+        $exists = (bool)$stmt->fetch(PDO::FETCH_NUM);
+    } catch (Throwable $e) {
+        $exists = false;
+    }
+    return $exists;
 }
 
 function getJsonInput(): array
