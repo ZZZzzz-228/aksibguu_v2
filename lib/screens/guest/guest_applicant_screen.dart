@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../data/api/api_client.dart';
+import '../../data/cache/guest_applicant_content_cache.dart';
 import '../../data/session/app_session.dart';
 import '../../widgets/haptic_refresh_indicator.dart';
 
@@ -15,10 +17,22 @@ class _GuestApplicantScreenState extends State<GuestApplicantScreen> {
   late Future<PageContentItem?> _pageFuture;
   late Future<List<SpecialtyItem>> _specialtiesFuture;
   late Future<List<PartnerItem>> _partnersFuture;
+  List<SpecialtyItem> _cachedSpecialties = const [];
+
+  Future<void> _loadCachedSpecialties() async {
+    final cachedSpecialties = await GuestApplicantContentCache.readSpecialties();
+    if (!mounted) return;
+    if (cachedSpecialties != null && cachedSpecialties.isNotEmpty) {
+      setState(() {
+        _cachedSpecialties = cachedSpecialties;
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    unawaited(_loadCachedSpecialties());
     _pageFuture = _api.fetchPageBySlug('about-college');
     _specialtiesFuture = _api.fetchSpecialties();
     _partnersFuture = _api.fetchPartners();
@@ -76,11 +90,17 @@ class _GuestApplicantScreenState extends State<GuestApplicantScreen> {
             FutureBuilder<List<SpecialtyItem>>(
               future: _specialtiesFuture,
               builder: (context, snapshot) {
-                final items = snapshot.data ?? const <SpecialtyItem>[];
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                final items = snapshot.data ?? _cachedSpecialties;
+                if (snapshot.connectionState == ConnectionState.waiting && items.isEmpty) {
                   return const Padding(
                     padding: EdgeInsets.all(12),
                     child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (items.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text('Специальности пока не загружены.'),
                   );
                 }
                 return Column(

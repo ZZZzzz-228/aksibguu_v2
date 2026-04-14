@@ -40,6 +40,7 @@ CREATE TABLE staff_members (
   phone VARCHAR(64) NULL,
   office_hours VARCHAR(255) NULL,
   photo_url VARCHAR(512) NULL,
+  color_hex VARCHAR(16) NULL,
   sort_order INT NOT NULL DEFAULT 0,
   is_published TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

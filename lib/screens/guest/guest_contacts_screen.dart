@@ -292,13 +292,13 @@ class _GuestContactsScreenState extends State<GuestContactsScreen> {
           ),
         ...List.generate(_staffList.length, (index) {
           final staff = _staffList[index];
-          const gradients = [
-            [Color(0xFF4A90E2), Color(0xFF64B5F6)],
-            [Color(0xFF42A5F5), Color(0xFF90CAF9)],
-            [Color(0xFF66BB6A), Color(0xFFA5D6A7)],
-            [Color(0xFFAB47BC), Color(0xFFCE93D8)],
-          ];
-          final gradientColors = gradients[index % gradients.length];
+          final customColor = _parseColorHex(staff.colorHex);
+          final gradientColors = customColor != null
+              ? [customColor, customColor.withOpacity(0.84)]
+              : [
+                  const Color(0xFF4A90E2),
+                  const Color(0xFF64B5F6),
+                ];
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: _buildStaffCard(
@@ -473,6 +473,22 @@ class _GuestContactsScreenState extends State<GuestContactsScreen> {
       return '$base$value';
     }
     return '$base/$value';
+  }
+
+  Color? _parseColorHex(String value) {
+    final hex = value.trim();
+    if (hex.isEmpty) {
+      return null;
+    }
+    final cleaned = hex.startsWith('#') ? hex.substring(1) : hex;
+    if (cleaned.length != 6) {
+      return null;
+    }
+    try {
+      return Color(int.parse('0xFF$cleaned'));
+    } catch (_) {
+      return null;
+    }
   }
 
   Widget _buildContactItem(IconData icon, String text, Color color) {

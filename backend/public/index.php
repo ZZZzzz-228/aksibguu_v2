@@ -186,7 +186,7 @@ if ($method === 'GET' && $path === '/stories') {
 
 if ($method === 'GET' && $path === '/staff') {
     $stmt = $pdo->query(
-        'SELECT id, full_name, position_title, email, phone, office_hours, photo_url
+        'SELECT id, full_name, position_title, email, phone, office_hours, photo_url, color_hex
          FROM staff_members
          WHERE is_published = 1
          ORDER BY sort_order ASC, id ASC'

@@ -489,6 +489,7 @@ class StaffMemberItem {
     required this.phone,
     required this.officeHours,
     required this.photoUrl,
+    required this.colorHex,
   });
 
   final int id;
@@ -498,6 +499,7 @@ class StaffMemberItem {
   final String phone;
   final String officeHours;
   final String photoUrl;
+  final String colorHex;
 
   factory StaffMemberItem.fromJson(Map<String, dynamic> json) {
     return StaffMemberItem(
@@ -508,6 +510,7 @@ class StaffMemberItem {
       phone: (json['phone'] ?? '').toString(),
       officeHours: (json['office_hours'] ?? '').toString(),
       photoUrl: (json['photo_url'] ?? '').toString(),
+      colorHex: (json['color_hex'] ?? '').toString(),
     );
   }
 
@@ -519,6 +522,7 @@ class StaffMemberItem {
         'phone': phone,
         'office_hours': officeHours,
         'photo_url': photoUrl,
+        'color_hex': colorHex,
       };
 }
 

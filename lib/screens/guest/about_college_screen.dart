@@ -39,6 +39,14 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
   List<EducationProgram> _educationProgramsUi = const [];
   List<StoryData> _storiesUi = const [];
 
+  Future<T?> _safeFetch<T>(Future<T> future) async {
+    try {
+      return await future;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _loadCms() async {
     final cachedSpecialties = await GuestApplicantContentCache.readSpecialties();
     final cachedEducation = await GuestApplicantContentCache.readEducationPrograms();
@@ -62,54 +70,53 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
         _storiesUi = cachedStories.map(_storyFromApi).toList(growable: false);
       });
     }
-    try {
-      final page = await _api.fetchPageBySlug('about-college');
-      if (mounted) {
-        setState(() => _cmsAboutCollege = page);
-      }
-    } catch (_) {
-      // keep current page data
+
+    final pageFuture = _safeFetch(_api.fetchPageBySlug('about-college'));
+    final specialtiesFuture = _safeFetch(_api.fetchSpecialties());
+    final educationFuture = _safeFetch(_api.fetchEducationPrograms());
+    final storiesFuture = _safeFetch(_api.fetchStories());
+    final partnersFuture = _safeFetch(_api.fetchPartners());
+
+    final results = await Future.wait([
+      pageFuture,
+      specialtiesFuture,
+      educationFuture,
+      storiesFuture,
+      partnersFuture,
+    ]);
+
+    final page = results[0] as PageContentItem?;
+    final cmsSpecialties = results[1] as List<SpecialtyItem>?;
+    final cmsEducation = results[2] as List<EducationProgramItem>?;
+    final cmsStories = results[3] as List<StoryItem>?;
+    final cmsPartners = results[4] as List<PartnerItem>?;
+
+    if (page != null && mounted) {
+      setState(() => _cmsAboutCollege = page);
     }
 
-    try {
-      final cmsSpecialties = await _api.fetchSpecialties();
-      if (mounted) {
-        setState(() {
-          _specialtiesUi = cmsSpecialties.map(_specialtyFromApi).toList(growable: false);
-        });
-      }
+    if (cmsSpecialties != null && mounted) {
+      setState(() {
+        _specialtiesUi = cmsSpecialties.map(_specialtyFromApi).toList(growable: false);
+      });
       await GuestApplicantContentCache.saveSpecialties(cmsSpecialties);
-    } catch (_) {
-      // keep cached specialties
     }
 
-    try {
-      final cmsEducation = await _api.fetchEducationPrograms();
-      if (mounted) {
-        setState(() {
-          _educationProgramsUi = cmsEducation.map(_educationProgramFromApi).toList(growable: false);
-        });
-      }
+    if (cmsEducation != null && mounted) {
+      setState(() {
+        _educationProgramsUi = cmsEducation.map(_educationProgramFromApi).toList(growable: false);
+      });
       await GuestApplicantContentCache.saveEducationPrograms(cmsEducation);
-    } catch (_) {
-      // keep cached education
     }
 
-    try {
-      final cmsStories = await _api.fetchStories();
-      if (mounted) {
-        setState(() {
-          _storiesUi = cmsStories.map(_storyFromApi).toList(growable: false);
-        });
-      }
+    if (cmsStories != null && mounted) {
+      setState(() {
+        _storiesUi = cmsStories.map(_storyFromApi).toList(growable: false);
+      });
       await GuestStoriesCache.save(cmsStories);
-    } catch (_) {
-      // keep cached stories
     }
 
-    try {
-      final cmsPartners = await _api.fetchPartners();
-
+    if (cmsPartners != null) {
       const icons = <IconData>[
         Icons.handshake,
         Icons.business,
@@ -140,12 +147,11 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
         );
       }).toList(growable: false);
 
-      if (!mounted) return;
-      setState(() {
-        _partnersUi = mergedPartners;
-      });
-    } catch (_) {
-      // keep current partners
+      if (mounted) {
+        setState(() {
+          _partnersUi = mergedPartners;
+        });
+      }
     }
   }
   List<EducationProgram> get _filteredEducationPrograms {

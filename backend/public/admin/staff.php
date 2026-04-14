@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $phone = trim((string)($_POST['phone'] ?? ''));
         $officeHours = trim((string)($_POST['office_hours'] ?? ''));
         $photoUrl = trim((string)($_POST['photo_url'] ?? ''));
+        $colorHex = adminNormalizeHexColor((string)($_POST['color_hex'] ?? ''));
         $croppedPhotoData = (string)($_POST['cropped_photo_data'] ?? '');
         $savedFromCrop = null;
         if ($croppedPhotoData !== '') {
@@ -37,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare(
                 'UPDATE staff_members
                  SET full_name=:full_name, position_title=:position_title, email=:email, phone=:phone,
-                     office_hours=:office_hours, photo_url=:photo_url, sort_order=:sort_order, is_published=:is_published
+                     office_hours=:office_hours, photo_url=:photo_url, color_hex=:color_hex, sort_order=:sort_order, is_published=:is_published
                  WHERE id=:id'
             );
             $stmt->execute([
@@ -48,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'phone' => $phone !== '' ? $phone : null,
                 'office_hours' => $officeHours !== '' ? $officeHours : null,
                 'photo_url' => $photoUrl !== '' ? $photoUrl : null,
+                'color_hex' => $colorHex !== '' ? $colorHex : null,
                 'sort_order' => $sortOrder,
                 'is_published' => $isPublished,
             ]);
@@ -59,8 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Сотрудник обновлен.');
         } else {
             $stmt = $pdo->prepare(
-                'INSERT INTO staff_members(full_name, position_title, email, phone, office_hours, photo_url, sort_order, is_published)
-                 VALUES (:full_name, :position_title, :email, :phone, :office_hours, :photo_url, :sort_order, :is_published)'
+                'INSERT INTO staff_members(full_name, position_title, email, phone, office_hours, photo_url, color_hex, sort_order, is_published)
+                 VALUES (:full_name, :position_title, :email, :phone, :office_hours, :photo_url, :color_hex, :sort_order, :is_published)'
             );
             $stmt->execute([
                 'full_name' => $fullName,
@@ -69,6 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'phone' => $phone !== '' ? $phone : null,
                 'office_hours' => $officeHours !== '' ? $officeHours : null,
                 'photo_url' => $photoUrl !== '' ? $photoUrl : null,
+                'color_hex' => $colorHex !== '' ? $colorHex : null,
                 'sort_order' => $sortOrder,
                 'is_published' => $isPublished,
             ]);
@@ -151,7 +154,7 @@ if ($editId > 0) {
     $editItem = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
-$staffRows = $pdo->query('SELECT id, full_name, position_title, photo_url, is_published, sort_order FROM staff_members ORDER BY sort_order ASC, id ASC')->fetchAll(PDO::FETCH_ASSOC);
+$staffRows = $pdo->query('SELECT id, full_name, position_title, photo_url, color_hex, is_published, sort_order FROM staff_members ORDER BY sort_order ASC, id ASC')->fetchAll(PDO::FETCH_ASSOC);
 
 $title = 'Управление сотрудниками';
 $user = getCurrentUser();
@@ -177,6 +180,8 @@ if ($msg): ?>
     <input name="phone" value="<?= h((string)($editItem['phone'] ?? '')) ?>">
     <label>Часы приема</label>
     <input name="office_hours" value="<?= h((string)($editItem['office_hours'] ?? '')) ?>">
+    <label>Цвет карточки</label>
+    <input type="color" name="color_hex" value="<?= h(adminColorForPicker((string)($editItem['color_hex'] ?? ''), '#4A90E2')) ?>">
     <label>Фото URL</label>
     <input name="photo_url" value="<?= h((string)($editItem['photo_url'] ?? '')) ?>">
     <label>Или загрузить фото</label>
@@ -212,7 +217,7 @@ if ($msg): ?>
   </form>
   <table>
     <thead>
-    <tr><th>ID</th><th>Фото</th><th>ФИО</th><th>Должность</th><th>Статус</th><th>Порядок</th><th>Действия</th></tr>
+    <tr><th>ID</th><th>Фото</th><th>ФИО</th><th>Должность</th><th>Цвет</th><th>Статус</th><th>Порядок</th><th>Действия</th></tr>
     </thead>
     <tbody id="staffSortableBody">
     <?php foreach ($staffRows as $row): ?>
@@ -227,6 +232,7 @@ if ($msg): ?>
         </td>
         <td><?= h((string)$row['full_name']) ?></td>
         <td><?= h((string)$row['position_title']) ?></td>
+        <td><span style="display:inline-block;width:24px;height:24px;border-radius:4px;background: <?= h(adminColorForPicker((string)($row['color_hex'] ?? ''), '#EEEEEE')) ?>;border:1px solid #ccc;"></span></td>
         <td><?= (int)$row['is_published'] === 1 ? 'Опубликован' : 'Скрыт' ?></td>
         <td><?= (int)$row['sort_order'] ?></td>
         <td>
