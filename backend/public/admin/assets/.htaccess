@@ -1,0 +1,42 @@
+# Кэширование статических файлов админ панели
+<IfModule mod_expires.c>
+    ExpiresActive On
+    
+    # CSS файлы - кэшировать на 30 дней
+    ExpiresByType text/css "access plus 30 days"
+    
+    # JavaScript файлы - кэшировать на 30 дней
+    ExpiresByType text/javascript "access plus 30 days"
+    ExpiresByType application/javascript "access plus 30 days"
+    ExpiresByType application/x-javascript "access plus 30 days"
+    
+    # Изображения - кэшировать на 60 дней
+    ExpiresByType image/jpeg "access plus 60 days"
+    ExpiresByType image/gif "access plus 60 days"
+    ExpiresByType image/png "access plus 60 days"
+    ExpiresByType image/webp "access plus 60 days"
+    ExpiresByType image/svg+xml "access plus 60 days"
+    
+    # Шрифты - кэшировать на 60 дней
+    ExpiresByType font/ttf "access plus 60 days"
+    ExpiresByType font/otf "access plus 60 days"
+    ExpiresByType font/woff "access plus 60 days"
+    ExpiresByType font/woff2 "access plus 60 days"
+    ExpiresByType application/font-woff "access plus 60 days"
+    
+    # По умолчанию - не кэшировать
+    ExpiresDefault "access plus 0 seconds"
+</IfModule>
+
+# Gzip сжатие
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/x-javascript
+</IfModule>
+
+# HTTP заголовки для ETag
+<IfModule mod_headers.c>
+    # Заголовок для кэширования (Cache-Control)
+    <FilesMatch "\.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|otf)$">
+        Header set Cache-Control "max-age=2592000, public"
+    </FilesMatch>
+</IfModule>

@@ -1,0 +1,51 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Поздравляем с зачислением!</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; background: #2563eb; color: white; padding: 20px; border-radius: 10px 10px 0 0; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 20px 0; }
+        .greeting { font-size: 18px; margin-bottom: 15px; }
+        .message { line-height: 1.6; margin-bottom: 20px; }
+        .credentials { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0; }
+        .credential-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .credential-row:last-child { border-bottom: none; }
+        .credential-label { font-weight: bold; }
+        .credential-value { font-family: monospace; background: white; padding: 2px 6px; border-radius: 4px; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Поздравляем!</h1>
+        </div>
+        <div class="content">
+            <div class="greeting">Здравствуйте, Тестовое Имя!</div>
+            <div class="message">
+                Ваша заявка успешно принята! Для вас создан личный аккаунт в системе колледжа.
+            </div>
+            <div class="credentials">
+                <div class="credential-row">
+                    <span class="credential-label">Логин (email):</span>
+                    <span class="credential-value">test@example.com</span>
+                </div>
+                <div class="credential-row">
+                    <span class="credential-label">Временный пароль:</span>
+                    <span class="credential-value">testpass123</span>
+                </div>
+            </div>
+            <div class="message">
+                <strong>Важно:</strong> После первого входа обязательно смените временный пароль на постоянный.
+            </div>
+        </div>
+        <div class="footer">
+            <p>Если возникнут вопросы, обратитесь в приемную комиссию.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -248,6 +248,37 @@ button:hover,
 button.danger {
   background: #b91c1c;
 }
+
+/* AJAX кнопки для действий в таблицах */
+.btn-ajax-toggle,
+.btn-ajax-move-up,
+.btn-ajax-move-down {
+  display: inline-block;
+  background: #0e7490;
+  color: #fff !important;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  text-decoration: none !important;
+  margin: 0 2px;
+  transition: all 0.2s ease;
+}
+.btn-ajax-toggle:hover,
+.btn-ajax-move-up:hover,
+.btn-ajax-move-down:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.btn-ajax-toggle:active,
+.btn-ajax-move-up:active,
+.btn-ajax-move-down:active {
+  transform: translateY(0);
+}
+
 .btnGhost {
   background: #f1f5f9;
   color: #0f172a !important;

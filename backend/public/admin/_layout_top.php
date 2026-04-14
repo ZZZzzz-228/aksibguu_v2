@@ -25,6 +25,7 @@ function navActive(string $currentPath, string $href): bool
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="<?= h(csrfToken()) ?>">
   <title><?= h(($title ?? 'Admin') . ' — Админка АКСИБГУ') ?></title>
   <link rel="stylesheet" href="/admin/assets/admin.css">
 </head>

@@ -159,16 +159,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (is_array($smtp) && !empty($smtp['host'])) {
             try {
                 $subj = 'Доступ в приложение колледжа (АКСИБГУ)';
-                $body = "Здравствуйте, {$fullName}!\n\n"
-                    . "Ваша заявка принята. Создан аккаунт студента.\n"
-                    . "Логин (email): {$email}\n"
-                    . "Временный пароль: {$plainPass}\n\n"
-                    . "Смените пароль после первого входа.\n";
-                SmtpMailer::send($smtp, $email, $subj, $body);
+
+                // Загружаем HTML-шаблон
+                $templatePath = __DIR__ . '/../../templates/email_template.html';
+                if (!file_exists($templatePath)) {
+                    throw new RuntimeException('Email template not found: ' . $templatePath);
+                }
+                $htmlBody = file_get_contents($templatePath);
+
+                // Заменяем плейсхолдеры
+                $htmlBody = str_replace('{FULL_NAME}', htmlspecialchars($fullName), $htmlBody);
+                $htmlBody = str_replace('{EMAIL}', htmlspecialchars($email), $htmlBody);
+                $htmlBody = str_replace('{PASSWORD}', htmlspecialchars($plainPass), $htmlBody);
+
+                SmtpMailer::send($smtp, $email, $subj, $htmlBody, true);
                 $mailOk = true;
             } catch (Throwable $e) {
                 $mailOk = false;
                 $mailErr = $e->getMessage();
+                // Запасной вариант - PHP mail()
+                try {
+                    $headers = [
+                        'MIME-Version: 1.0',
+                        'Content-type: text/html; charset=UTF-8',
+                        'From: ' . ($smtp['from_name'] ?? 'АКСИБГУ') . ' <' . ($smtp['from_email'] ?? 'noreply@example.com') . '>',
+                        'Reply-To: ' . ($smtp['from_email'] ?? 'noreply@example.com'),
+                    ];
+                    $mailSent = mail($email, $subj, $htmlBody, implode("\r\n", $headers));
+                    if ($mailSent) {
+                        $mailOk = true;
+                        $mailErr = '';
+                    }
+                } catch (Throwable $mailE) {
+                    // Оставляем оригинальную ошибку
+                }
             }
         } elseif (!is_array($smtp) || empty($smtp['host'])) {
             $mailErr = 'В config.php не задан smtp.host.';

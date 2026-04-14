@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 final class SmtpMailer
 {
-    public static function send(array $smtp, string $to, string $subject, string $textBody): void
+    public static function send(array $smtp, string $to, string $subject, string $textBody, bool $isHtml = false): void
     {
         $host = (string)($smtp['host'] ?? '');
         $port = (int)($smtp['port'] ?? 587);
@@ -28,7 +28,15 @@ final class SmtpMailer
         self::cmd($socket, 'EHLO localhost');
         $ehlo = self::readMultiline($socket);
 
-        if ($encryption === 'tls') {
+        // Для порта 465 используем SSL, для 587 - STARTTLS
+        if ($port === 465 && $encryption === 'tls') {
+            // SSL порт - включаем шифрование сразу
+            if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+                throw new RuntimeException('Failed to enable SSL');
+            }
+            self::cmd($socket, 'EHLO localhost');
+            self::readMultiline($socket);
+        } elseif ($encryption === 'tls') {
             if (stripos($ehlo, 'STARTTLS') === false) {
                 throw new RuntimeException('SMTP server does not support STARTTLS');
             }
@@ -62,7 +70,7 @@ final class SmtpMailer
             'To: <' . $to . '>',
             'Subject: ' . self::encodeHeader($subject),
             'MIME-Version: 1.0',
-            'Content-Type: text/plain; charset=utf-8',
+            'Content-Type: ' . ($isHtml ? 'text/html' : 'text/plain') . '; charset=utf-8',
             'Content-Transfer-Encoding: 8bit',
         ];
 

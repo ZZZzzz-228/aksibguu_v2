@@ -3,6 +3,9 @@ require __DIR__ . '/_bootstrap.php';
 requireLogin();
 requireAnyRole(['admin', 'staff']);
 
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest';
+$ajaxResponse = null;
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if ($action === 'save') {
@@ -104,8 +107,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($id > 0) {
             $stmt = $pdo->prepare('UPDATE staff_members SET is_published = 1 - is_published WHERE id=:id');
             $stmt->execute(['id' => $id]);
+            
+            // Получаем новый статус
+            $stmt = $pdo->prepare('SELECT is_published FROM staff_members WHERE id=:id');
+            $stmt->execute(['id' => $id]);
+            $newStatus = (int)($stmt->fetch(PDO::FETCH_ASSOC)['is_published'] ?? 0);
+            
             auditLog($pdo, 'toggle_publish', 'staff_member', (string)$id, null);
-            flash('Статус сотрудника переключен.');
+            
+            if ($isAjax) {
+                $ajaxResponse = ['success' => true, 'is_published' => (bool)$newStatus];
+            } else {
+                flash('Статус сотрудника переключен.');
+            }
+        } else {
+            if ($isAjax) {
+                $ajaxResponse = ['success' => false, 'message' => 'ID не найден'];
+            }
         }
     }
 
@@ -118,7 +136,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bindValue(':id', $id, PDO::PARAM_INT);
             $stmt->execute();
             auditLog($pdo, $action, 'staff_member', (string)$id, null);
-            flash('Порядок сотрудника изменен.');
+            
+            if ($isAjax) {
+                $ajaxResponse = ['success' => true];
+            } else {
+                flash('Порядок сотрудника изменен.');
+            }
+        } else {
+            if ($isAjax) {
+                $ajaxResponse = ['success' => false, 'message' => 'ID не найден'];
+            }
         }
     }
 
@@ -143,6 +170,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Порядок сотрудников сохранен.');
         }
     }
+    
+    // Если это AJAX запрос, возвращаем JSON
+    if ($isAjax) {
+        if ($ajaxResponse === null) {
+            $ajaxResponse = ['success' => false, 'message' => 'Неизвестное действие'];
+        }
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($ajaxResponse, JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    
     redirectTo('/admin/staff.php');
 }
 
@@ -237,21 +275,9 @@ if ($msg): ?>
         <td><?= (int)$row['sort_order'] ?></td>
         <td>
           <a href="/admin/staff.php?edit=<?= (int)$row['id'] ?>">Редактировать</a>
-          <form method="post" style="display:inline;">
-            <input type="hidden" name="action" value="move_up">
-            <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
-            <button type="submit">Вверх</button>
-          </form>
-          <form method="post" style="display:inline;">
-            <input type="hidden" name="action" value="move_down">
-            <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
-            <button type="submit">Вниз</button>
-          </form>
-          <form method="post" style="display:inline;">
-            <input type="hidden" name="action" value="toggle_publish">
-            <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
-            <button type="submit"><?= (int)$row['is_published'] === 1 ? 'Скрыть' : 'Показать' ?></button>
-          </form>
+          <button class="btn-ajax-move-up" data-id="<?= (int)$row['id'] ?>">Вверх</button>
+          <button class="btn-ajax-move-down" data-id="<?= (int)$row['id'] ?>">Вниз</button>
+          <button class="btn-ajax-toggle" data-id="<?= (int)$row['id'] ?>"><?= (int)$row['is_published'] === 1 ? 'Скрыть' : 'Показать' ?></button>
           <?php if ($canDelete): ?>
             <form method="post" style="display:inline;">
               <input type="hidden" name="action" value="delete">
@@ -268,6 +294,8 @@ if ($msg): ?>
 
 <link rel="stylesheet" href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css">
 <script src="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js"></script>
+<script src="/admin/assets/toast.js"></script>
+<script src="/admin/assets/admin-ajax.js"></script>
 <script>
 (() => {
   const input = document.getElementById('staff_photo_file');
@@ -365,6 +393,45 @@ if ($msg): ?>
 
   search.addEventListener('input', applyFilters);
   status.addEventListener('change', applyFilters);
+})();
+</script>
+<script>
+// AJAX обработчики для некритичных действий
+(() => {
+  const tbody = document.getElementById('staffSortableBody');
+  if (!tbody) return;
+
+  // Toggle publish
+  tbody.querySelectorAll('.btn-ajax-toggle').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const id = parseInt(btn.dataset.id, 10);
+      const result = await AdminAjax.togglePublish('/admin/staff.php', id, 'Сотрудник');
+      if (result.success) {
+        // Обновляем текст кнопки и статус строки
+        const row = btn.closest('tr');
+        const statusCol = row.querySelector('td:nth-child(6)');
+        const isPublished = result.is_published;
+        statusCol.textContent = isPublished ? 'Опубликован' : 'Скрыт';
+        btn.textContent = isPublished ? 'Скрыть' : 'Показать';
+        row.dataset.status = isPublished ? 'published' : 'draft';
+      }
+    });
+  });
+
+  // Move up/down
+  tbody.querySelectorAll('.btn-ajax-move-up, .btn-ajax-move-down').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const id = parseInt(btn.dataset.id, 10);
+      const isUp = btn.classList.contains('btn-ajax-move-up');
+      const result = await AdminAjax.moveItem('/admin/staff.php', id, isUp ? 'up' : 'down');
+      if (result.success) {
+        // Переезагружаем страницу для обновления порядка
+        setTimeout(() => location.reload(), 500);
+      }
+    });
+  });
 })();
 </script>
 
