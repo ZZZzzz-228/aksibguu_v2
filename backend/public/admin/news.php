@@ -50,6 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $imageUrl = trim((string)($_POST['image_url'] ?? ''));
         $croppedImageData = (string)($_POST['cropped_image_data'] ?? '');
         $savedFromCrop = null;
+        if (!empty($_POST['remove_image'])) {
+            $imageUrl = '';
+        }
         if ($croppedImageData !== '') {
             $savedFromCrop = saveBase64Image($croppedImageData);
         }
@@ -218,10 +221,10 @@ if ($msg): ?>
     <input name="title" value="<?= h((string)($editItem['title'] ?? '')) ?>" required>
     <label>Текст</label>
     <textarea name="content" required><?= h((string)($editItem['content'] ?? '')) ?></textarea>
-    <label>Image URL (опционально)</label>
-    <input name="image_url" value="<?= h((string)($editItem['image_url'] ?? '')) ?>">
+    <input type="hidden" name="image_url" value="<?= h((string)($editItem['image_url'] ?? '')) ?>">
     <label>Или загрузить изображение</label>
     <input id="news_image_file" name="image_file" type="file" accept="image/jpeg,image/png,image/webp">
+    <label><input type="checkbox" name="remove_image" value="1"> Удалить текущее изображение</label>
     <input id="news_cropped_image_data" name="cropped_image_data" type="hidden">
     <div class="muted">После выбора файла можно подвигать кадр. Формат: 16:9.</div>
     <div style="max-width:480px;margin-top:8px;">

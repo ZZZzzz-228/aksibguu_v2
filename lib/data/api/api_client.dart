@@ -130,6 +130,9 @@ class ApiClient {
   Future<PageContentItem?> fetchPageBySlug(String slug) async {
     final response = await http.get(Uri.parse('$baseUrl/public/pages/$slug'));
     final json = _decodeJson(response.body);
+    if (response.statusCode == 404) {
+      return null;
+    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(json['message']?.toString() ?? 'Failed to load page');
     }
@@ -151,6 +154,20 @@ class ApiClient {
     return data.whereType<Map<String, dynamic>>().map(SpecialtyItem.fromJson).toList(growable: false);
   }
 
+  Future<List<EducationProgramItem>> fetchEducationPrograms() async {
+    final response = await http.get(Uri.parse('$baseUrl/public/education-programs'));
+    final json = _decodeJson(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(json['message']?.toString() ?? 'Failed to load education programs');
+    }
+    final data = json['data'];
+    if (data is! List) return const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(EducationProgramItem.fromJson)
+        .toList(growable: false);
+  }
+
   Future<List<PartnerItem>> fetchPartners() async {
     final response = await http.get(Uri.parse('$baseUrl/public/partners'));
     final json = _decodeJson(response.body);
@@ -160,6 +177,27 @@ class ApiClient {
     final data = json['data'];
     if (data is! List) return const [];
     return data.whereType<Map<String, dynamic>>().map(PartnerItem.fromJson).toList(growable: false);
+  }
+
+  Future<CareerTestPayload> fetchCareerTest() async {
+    final response = await http.get(Uri.parse('$baseUrl/public/career-test'));
+    final json = _decodeJson(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(json['message']?.toString() ?? 'Failed to load career test');
+    }
+    final data = json['data'];
+    if (data is! Map<String, dynamic>) {
+      return const CareerTestPayload(questions: []);
+    }
+    final raw = data['questions'];
+    if (raw is! List) {
+      return const CareerTestPayload(questions: []);
+    }
+    final questions = raw
+        .whereType<Map<String, dynamic>>()
+        .map(CareerTestQuestion.fromJson)
+        .toList(growable: false);
+    return CareerTestPayload(questions: questions);
   }
 
   Future<StudentProfileItem?> fetchStudentProfile() async {
@@ -508,6 +546,42 @@ class StoryItem {
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'content': content,
+        'image_url': imageUrl,
+        'sort_order': sortOrder,
+      };
+}
+
+class PageStatCms {
+  const PageStatCms({
+    required this.iconName,
+    required this.value,
+    required this.label,
+    required this.colorHex,
+  });
+
+  final String iconName;
+  final String value;
+  final String label;
+  final String colorHex;
+}
+
+class PageCmsCard {
+  const PageCmsCard({
+    required this.iconName,
+    required this.title,
+    required this.text,
+    required this.colorHex,
+  });
+
+  final String iconName;
+  final String title;
+  final String text;
+  final String colorHex;
 }
 
 class PageContentItem {
@@ -518,6 +592,16 @@ class PageContentItem {
     required this.lead,
     required this.body,
     required this.coverImageUrl,
+    this.missionTitle = '',
+    this.aboutTitle = '',
+    this.statsHeading = '',
+    this.advantagesHeading = '',
+    this.achievementsHeading = '',
+    this.infrastructureHeading = '',
+    this.infrastructureText = '',
+    this.stats = const [],
+    this.advantages = const [],
+    this.achievements = const [],
   });
 
   final String slug;
@@ -526,10 +610,78 @@ class PageContentItem {
   final String lead;
   final String body;
   final String coverImageUrl;
+  final String missionTitle;
+  final String aboutTitle;
+  final String statsHeading;
+  final String advantagesHeading;
+  final String achievementsHeading;
+  final String infrastructureHeading;
+  final String infrastructureText;
+  final List<PageStatCms> stats;
+  final List<PageCmsCard> advantages;
+  final List<PageCmsCard> achievements;
+
+  static Map<String, dynamic> _parseContentMap(dynamic raw) {
+    if (raw is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(raw);
+    }
+    if (raw is String) {
+      final t = raw.trim();
+      if (t.isEmpty) return {};
+      try {
+        final decoded = jsonDecode(t);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+      } catch (_) {}
+    }
+    return {};
+  }
+
+  static List<PageStatCms> _parseStats(dynamic raw) {
+    if (raw is! List) {
+      return const [];
+    }
+    final out = <PageStatCms>[];
+    for (final item in raw) {
+      if (item is Map) {
+        final m = Map<String, dynamic>.from(item as Map<dynamic, dynamic>);
+        out.add(
+          PageStatCms(
+            iconName: (m['icon'] ?? '').toString(),
+            value: (m['value'] ?? '').toString(),
+            label: (m['label'] ?? '').toString(),
+            colorHex: (m['color'] ?? '').toString(),
+          ),
+        );
+      }
+    }
+    return out;
+  }
+
+  static List<PageCmsCard> _parseCmsCards(dynamic raw) {
+    if (raw is! List) {
+      return const [];
+    }
+    final out = <PageCmsCard>[];
+    for (final item in raw) {
+      if (item is Map) {
+        final m = Map<String, dynamic>.from(item as Map<dynamic, dynamic>);
+        out.add(
+          PageCmsCard(
+            iconName: (m['icon'] ?? '').toString(),
+            title: (m['title'] ?? '').toString(),
+            text: (m['text'] ?? '').toString(),
+            colorHex: (m['color'] ?? '').toString(),
+          ),
+        );
+      }
+    }
+    return out;
+  }
 
   factory PageContentItem.fromJson(Map<String, dynamic> json) {
-    final content = json['content_json'];
-    final contentMap = content is Map<String, dynamic> ? content : <String, dynamic>{};
+    final contentMap = _parseContentMap(json['content_json']);
     return PageContentItem(
       slug: (json['slug'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
@@ -537,6 +689,16 @@ class PageContentItem {
       lead: (contentMap['lead'] ?? '').toString(),
       body: (contentMap['body'] ?? '').toString(),
       coverImageUrl: (json['cover_image_url'] ?? '').toString(),
+      missionTitle: (contentMap['mission_title'] ?? '').toString(),
+      aboutTitle: (contentMap['about_title'] ?? '').toString(),
+      statsHeading: (contentMap['stats_heading'] ?? '').toString(),
+      advantagesHeading: (contentMap['advantages_heading'] ?? '').toString(),
+      achievementsHeading: (contentMap['achievements_heading'] ?? '').toString(),
+      infrastructureHeading: (contentMap['infrastructure_heading'] ?? '').toString(),
+      infrastructureText: (contentMap['infrastructure_text'] ?? '').toString(),
+      stats: _parseStats(contentMap['stats']),
+      advantages: _parseCmsCards(contentMap['advantages']),
+      achievements: _parseCmsCards(contentMap['achievements']),
     );
   }
 }
@@ -546,13 +708,31 @@ class SpecialtyItem {
     required this.id,
     required this.code,
     required this.title,
+    required this.shortTitle,
     required this.description,
+    required this.durationLabel,
+    required this.studyFormLabel,
+    required this.qualificationText,
+    required this.careerText,
+    required this.skillsText,
+    required this.salaryText,
+    required this.colorHex,
+    required this.iconName,
     required this.imageUrl,
   });
   final int id;
   final String code;
   final String title;
+  final String shortTitle;
   final String description;
+  final String durationLabel;
+  final String studyFormLabel;
+  final String qualificationText;
+  final String careerText;
+  final String skillsText;
+  final String salaryText;
+  final String colorHex;
+  final String iconName;
   final String imageUrl;
 
   factory SpecialtyItem.fromJson(Map<String, dynamic> json) {
@@ -560,10 +740,98 @@ class SpecialtyItem {
       id: (json['id'] as num?)?.toInt() ?? 0,
       code: (json['code'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
+      shortTitle: (json['short_title'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
+      durationLabel: (json['duration_label'] ?? '').toString(),
+      studyFormLabel: (json['study_form_label'] ?? '').toString(),
+      qualificationText: (json['qualification_text'] ?? '').toString(),
+      careerText: (json['career_text'] ?? '').toString(),
+      skillsText: (json['skills_text'] ?? '').toString(),
+      salaryText: (json['salary_text'] ?? '').toString(),
+      colorHex: (json['color_hex'] ?? '').toString(),
+      iconName: (json['icon_name'] ?? '').toString(),
       imageUrl: (json['image_url'] ?? '').toString(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'code': code,
+        'title': title,
+        'short_title': shortTitle,
+        'description': description,
+        'duration_label': durationLabel,
+        'study_form_label': studyFormLabel,
+        'qualification_text': qualificationText,
+        'career_text': careerText,
+        'skills_text': skillsText,
+        'salary_text': salaryText,
+        'color_hex': colorHex,
+        'icon_name': iconName,
+        'image_url': imageUrl,
+      };
+}
+
+class EducationProgramItem {
+  EducationProgramItem({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.description,
+    required this.durationLabel,
+    required this.details,
+    required this.targetAudience,
+    required this.outcomeText,
+    required this.formatText,
+    required this.iconName,
+    required this.colorHex,
+    required this.imageUrl,
+  });
+
+  final int id;
+  final String type;
+  final String title;
+  final String description;
+  final String durationLabel;
+  final String details;
+  final String targetAudience;
+  final String outcomeText;
+  final String formatText;
+  final String iconName;
+  final String colorHex;
+  final String imageUrl;
+
+  factory EducationProgramItem.fromJson(Map<String, dynamic> json) {
+    return EducationProgramItem(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      type: (json['type'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      durationLabel: (json['duration_label'] ?? '').toString(),
+      details: (json['details'] ?? '').toString(),
+      targetAudience: (json['target_audience'] ?? '').toString(),
+      outcomeText: (json['outcome_text'] ?? '').toString(),
+      formatText: (json['format_text'] ?? '').toString(),
+      iconName: (json['icon_name'] ?? '').toString(),
+      colorHex: (json['color_hex'] ?? '').toString(),
+      imageUrl: (json['image_url'] ?? '').toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'type': type,
+        'title': title,
+        'description': description,
+        'duration_label': durationLabel,
+        'details': details,
+        'target_audience': targetAudience,
+        'outcome_text': outcomeText,
+        'format_text': formatText,
+        'icon_name': iconName,
+        'color_hex': colorHex,
+        'image_url': imageUrl,
+      };
 }
 
 class PartnerItem {
@@ -587,6 +855,48 @@ class PartnerItem {
       description: (json['description'] ?? '').toString(),
       websiteUrl: (json['website_url'] ?? '').toString(),
       logoUrl: (json['logo_url'] ?? '').toString(),
+    );
+  }
+}
+
+class CareerTestPayload {
+  const CareerTestPayload({required this.questions});
+  final List<CareerTestQuestion> questions;
+}
+
+class CareerTestQuestion {
+  CareerTestQuestion({required this.question, required this.answers});
+  final String question;
+  final List<CareerTestAnswer> answers;
+
+  factory CareerTestQuestion.fromJson(Map<String, dynamic> json) {
+    final rawAnswers = json['answers'];
+    final answers = rawAnswers is List
+        ? rawAnswers
+            .whereType<Map<String, dynamic>>()
+            .map(CareerTestAnswer.fromJson)
+            .toList(growable: false)
+        : <CareerTestAnswer>[];
+    return CareerTestQuestion(
+      question: (json['question'] ?? '').toString(),
+      answers: answers,
+    );
+  }
+}
+
+class CareerTestAnswer {
+  CareerTestAnswer({required this.text, required this.specialtyTitles});
+  final String text;
+  final List<String> specialtyTitles;
+
+  factory CareerTestAnswer.fromJson(Map<String, dynamic> json) {
+    final raw = json['specialty_ids'];
+    final titles = raw is List
+        ? raw.map((e) => e.toString()).toList(growable: false)
+        : <String>[];
+    return CareerTestAnswer(
+      text: (json['text'] ?? '').toString(),
+      specialtyTitles: titles,
     );
   }
 }

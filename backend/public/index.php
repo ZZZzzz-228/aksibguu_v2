@@ -256,15 +256,66 @@ if ($method === 'GET' && preg_match('#^/public/pages/([a-z0-9\-]+)$#', $path, $m
 }
 
 if ($method === 'GET' && $path === '/public/specialties') {
-    $stmt = $pdo->query(
-        'SELECT id, code, title, description, icon_name, image_url
-         FROM specialties
-         WHERE is_published = 1
-           AND (publish_from IS NULL OR publish_from <= NOW())
-           AND (publish_to IS NULL OR publish_to >= NOW())
-         ORDER BY sort_order ASC, id ASC'
-    );
-    Response::json(['ok' => true, 'data' => $stmt->fetchAll()]);
+    try {
+        $stmt = $pdo->query(
+            'SELECT id, code, title, short_title, description, duration_label, study_form_label,
+                    qualification_text, career_text, skills_text, salary_text, color_hex, icon_name, image_url
+             FROM specialties
+             WHERE is_published = 1
+               AND (publish_from IS NULL OR publish_from <= NOW())
+               AND (publish_to IS NULL OR publish_to >= NOW())
+             ORDER BY sort_order ASC, id ASC'
+        );
+        Response::json(['ok' => true, 'data' => $stmt->fetchAll()]);
+    } catch (Throwable $e) {
+        // Совместимость со старой схемой (до migration_specialties_education_full.sql)
+        $stmt = $pdo->query(
+            "SELECT id, code, title, '' AS short_title, description,
+                    '' AS duration_label, '' AS study_form_label, '' AS qualification_text,
+                    '' AS career_text, '' AS skills_text, '' AS salary_text,
+                    '' AS color_hex, COALESCE(icon_name, '') AS icon_name, COALESCE(image_url, '') AS image_url
+             FROM specialties
+             WHERE is_published = 1
+               AND (publish_from IS NULL OR publish_from <= NOW())
+               AND (publish_to IS NULL OR publish_to >= NOW())
+             ORDER BY sort_order ASC, id ASC"
+        );
+        Response::json(['ok' => true, 'data' => $stmt->fetchAll()]);
+    }
+}
+
+if ($method === 'GET' && $path === '/public/education-programs') {
+    try {
+        $stmt = $pdo->query(
+            "SELECT id, type, title, description, duration_label, details,
+                    target_audience, outcome_text, format_text,
+                    icon_name, color_hex, image_url
+             FROM education_programs
+             WHERE is_published = 1
+               AND (publish_from IS NULL OR publish_from <= NOW())
+               AND (publish_to IS NULL OR publish_to >= NOW())
+             ORDER BY type ASC, sort_order ASC, id ASC"
+        );
+        Response::json(['ok' => true, 'data' => $stmt->fetchAll()]);
+    } catch (Throwable $e) {
+        // Совместимость со старой схемой education_programs.
+        try {
+            $stmt = $pdo->query(
+                "SELECT id, type, title, description, duration_label, details,
+                        '' AS target_audience, '' AS outcome_text, '' AS format_text,
+                        COALESCE(icon_name, '') AS icon_name, COALESCE(color_hex, '') AS color_hex, COALESCE(image_url, '') AS image_url
+                 FROM education_programs
+                 WHERE is_published = 1
+                   AND (publish_from IS NULL OR publish_from <= NOW())
+                   AND (publish_to IS NULL OR publish_to >= NOW())
+                 ORDER BY type ASC, sort_order ASC, id ASC"
+            );
+            Response::json(['ok' => true, 'data' => $stmt->fetchAll()]);
+        } catch (Throwable $e2) {
+            // Если таблицы ещё нет, чтобы клиент не падал.
+            Response::json(['ok' => true, 'data' => []]);
+        }
+    }
 }
 
 if ($method === 'GET' && $path === '/public/home/blocks') {
@@ -288,6 +339,19 @@ if ($method === 'GET' && $path === '/public/partners') {
          ORDER BY sort_order ASC, id ASC'
     );
     Response::json(['ok' => true, 'data' => $stmt->fetchAll()]);
+}
+
+if ($method === 'GET' && $path === '/public/career-test') {
+    $file = __DIR__ . '/../database/career_test.json';
+    if (!is_file($file)) {
+        Response::json(['ok' => true, 'data' => ['questions' => []]]);
+    }
+    $raw = file_get_contents($file);
+    $decoded = is_string($raw) ? json_decode($raw, true) : null;
+    if (!is_array($decoded)) {
+        Response::json(['ok' => true, 'data' => ['questions' => []]]);
+    }
+    Response::json(['ok' => true, 'data' => $decoded]);
 }
 
 if ($method === 'GET' && $path === '/public/application-status') {

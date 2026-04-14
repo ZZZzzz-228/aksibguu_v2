@@ -276,6 +276,38 @@ function saveBase64Image(string $dataUrl): ?string
     return '/uploads/' . $name;
 }
 
+function adminNormalizeHexColor(string $value): string
+{
+    $v = trim($value);
+    if ($v === '') {
+        return '';
+    }
+    if (str_starts_with($v, '0x') || str_starts_with($v, '0X')) {
+        $v = substr($v, 2);
+    }
+    if (str_starts_with($v, '#')) {
+        $v = substr($v, 1);
+    }
+    if (strlen($v) === 8) {
+        // Keep RGB part when ARGB was provided.
+        $v = substr($v, 2);
+    }
+    if (!preg_match('/^[0-9a-fA-F]{6}$/', $v)) {
+        return '';
+    }
+    return '#' . strtoupper($v);
+}
+
+function adminColorForPicker(?string $value, string $fallback = '#1565C0'): string
+{
+    $normalized = adminNormalizeHexColor((string)$value);
+    if ($normalized !== '') {
+        return $normalized;
+    }
+    $fb = adminNormalizeHexColor($fallback);
+    return $fb !== '' ? $fb : '#1565C0';
+}
+
 function auditLog(PDO $pdo, string $action, string $entity, string $entityId, ?array $payload = null): void
 {
     $currentUser = getCurrentUser();

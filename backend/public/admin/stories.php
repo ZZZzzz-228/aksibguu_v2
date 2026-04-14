@@ -23,6 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $croppedImageData = (string)($_POST['cropped_image_data'] ?? '');
         $savedFromCrop = null;
+        if (!empty($_POST['remove_image'])) {
+            $imageUrl = '';
+        }
         if ($croppedImageData !== '') {
             $savedFromCrop = saveBase64Image($croppedImageData);
         }
@@ -185,10 +188,10 @@ if ($msg): ?><div class="flash"><?= h($msg) ?></div><?php endif; ?>
     <input name="title" value="<?= h((string)($editItem['title'] ?? '')) ?>" required>
     <label>Текст</label>
     <textarea name="content" required><?= h((string)($editItem['content'] ?? '')) ?></textarea>
-    <label>Image URL (опционально)</label>
-    <input name="image_url" value="<?= h((string)($editItem['image_url'] ?? '')) ?>">
+    <input type="hidden" name="image_url" value="<?= h((string)($editItem['image_url'] ?? '')) ?>">
     <label>Или загрузить изображение</label>
     <input id="story_image_file" name="image_file" type="file" accept="image/jpeg,image/png,image/webp">
+    <label><input type="checkbox" name="remove_image" value="1"> Удалить текущее изображение</label>
     <input id="story_cropped_image_data" name="cropped_image_data" type="hidden">
     <div class="muted">Формат сторис: 9:16</div>
     <div style="max-width:280px;margin-top:8px;">

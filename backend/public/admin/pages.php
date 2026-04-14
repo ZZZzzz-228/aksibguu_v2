@@ -1,9 +1,22 @@
 <?php
 require __DIR__ . '/_bootstrap.php';
+require_once __DIR__ . '/page_cms_helpers.php';
 requireLogin();
 if (!canManageContent()) {
     flash('Недостаточно прав для раздела контента.');
     redirectTo('/admin/index.php');
+}
+
+$slugRedirect = trim((string)($_GET['slug'] ?? ''));
+if ($slugRedirect !== '' && preg_match('/^[a-z0-9\-]+$/', $slugRedirect)) {
+    $stmtSlug = $pdo->prepare('SELECT id FROM pages WHERE slug = :slug LIMIT 1');
+    $stmtSlug->execute(['slug' => $slugRedirect]);
+    $foundSlug = $stmtSlug->fetch(PDO::FETCH_ASSOC);
+    if ($foundSlug) {
+        redirectTo('/admin/pages.php?edit=' . (int)$foundSlug['id']);
+    }
+    flash('Страница с таким slug не найдена. Создайте новую страницу ниже.');
+    redirectTo('/admin/pages.php');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -56,6 +69,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $publishFromSql = $publishFrom !== '' ? str_replace('T', ' ', $publishFrom) . ':00' : null;
         $publishToSql = $publishTo !== '' ? str_replace('T', ' ', $publishTo) . ':00' : null;
         $croppedImageData = (string)($_POST['cropped_cover_data'] ?? '');
+        if (!empty($_POST['remove_cover_image'])) {
+            $coverImageUrl = '';
+        }
         if ($croppedImageData !== '') {
             $saved = saveBase64Image($croppedImageData);
             if ($saved !== null) {
@@ -78,10 +94,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!in_array($audience, ['guest', 'applicant', 'student', 'teacher', 'common'], true)) {
             $audience = 'common';
         }
-        $contentJson = json_encode([
-            'lead' => $lead,
-            'body' => $body,
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $missionTitle = trim((string)($_POST['mission_title'] ?? ''));
+        $aboutTitle = trim((string)($_POST['about_title'] ?? ''));
+        $infrastructureText = trim((string)($_POST['infrastructure_text'] ?? ''));
+        $statsHeading = trim((string)($_POST['stats_heading'] ?? ''));
+        $advantagesHeading = trim((string)($_POST['advantages_heading'] ?? ''));
+        $achievementsHeading = trim((string)($_POST['achievements_heading'] ?? ''));
+        $infrastructureHeading = trim((string)($_POST['infrastructure_heading'] ?? ''));
+
+        $baseMerge = [];
+        if ($id > 0) {
+            $stmtPrev = $pdo->prepare('SELECT content_json FROM pages WHERE id=:id LIMIT 1');
+            $stmtPrev->execute(['id' => $id]);
+            $rowPrev = $stmtPrev->fetch(PDO::FETCH_ASSOC);
+            if ($rowPrev && !empty($rowPrev['content_json'])) {
+                $pj = json_decode((string)$rowPrev['content_json'], true);
+                if (is_array($pj)) {
+                    $baseMerge = $pj;
+                }
+            }
+        }
+
+        $statsDecoded = cms_collect_indexed_rows($_POST, 'stat_', ['icon', 'value', 'label', 'color']);
+        foreach ($statsDecoded as &$row) {
+            $row['color'] = adminNormalizeHexColor((string)($row['color'] ?? ''));
+        }
+        unset($row);
+        $advantagesDecoded = cms_collect_indexed_rows($_POST, 'adv_', ['icon', 'title', 'text', 'color']);
+        foreach ($advantagesDecoded as &$row) {
+            $row['color'] = adminNormalizeHexColor((string)($row['color'] ?? ''));
+        }
+        unset($row);
+        $achievementsDecoded = cms_collect_indexed_rows($_POST, 'ach_', ['icon', 'title', 'text', 'color']);
+        foreach ($achievementsDecoded as &$row) {
+            $row['color'] = adminNormalizeHexColor((string)($row['color'] ?? ''));
+        }
+        unset($row);
+
+        if ($slug === 'about-college') {
+            $merged = array_merge(
+                $baseMerge,
+                [
+                    'lead' => $lead,
+                    'body' => $body,
+                    'mission_title' => $missionTitle,
+                    'about_title' => $aboutTitle,
+                    'stats_heading' => $statsHeading,
+                    'advantages_heading' => $advantagesHeading,
+                    'achievements_heading' => $achievementsHeading,
+                    'infrastructure_heading' => $infrastructureHeading,
+                    'infrastructure_text' => $infrastructureText,
+                    'stats' => $statsDecoded,
+                    'advantages' => $advantagesDecoded,
+                    'achievements' => $achievementsDecoded,
+                ]
+            );
+            unset($merged['advantages_text'], $merged['achievements_text'], $merged['stats_json']);
+            $contentJson = json_encode($merged, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        } else {
+            $merged = array_merge(
+                $baseMerge,
+                [
+                    'lead' => $lead,
+                    'body' => $body,
+                ]
+            );
+            $contentJson = json_encode($merged, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
 
         $currentUser = getCurrentUser();
         $currentUserId = (int)($currentUser['id'] ?? 0);
@@ -192,13 +271,83 @@ if ($msg): ?><div class="flash"><?= h($msg) ?></div><?php endif; ?>
 
 <div class="card">
   <h2 style="margin-top:0;"><?= $editItem ? 'Редактировать страницу' : 'Добавить страницу' ?></h2>
+  <?php if ($editItem && (string)($editItem['slug'] ?? '') === 'about-college'): ?>
+    <p class="muted" style="margin-top:0;padding:12px;background:#e0f2fe;border-radius:8px;">
+      Эта страница (<code>about-college</code>) используется в мобильном приложении на экране «О колледже»: фото обложки, лид, основной текст и дополнительные блоки ниже.
+    </p>
+  <?php endif; ?>
   <?php
     $decoded = null;
-    if (!empty($editItem['content_json'])) {
+    if ($editItem && !empty($editItem['content_json'])) {
         $decoded = json_decode((string)$editItem['content_json'], true);
     }
     $leadValue = is_array($decoded) ? (string)($decoded['lead'] ?? '') : '';
     $bodyValue = is_array($decoded) ? (string)($decoded['body'] ?? '') : '';
+    $missionTitleValue = is_array($decoded) ? (string)($decoded['mission_title'] ?? '') : '';
+    $aboutTitleValue = is_array($decoded) ? (string)($decoded['about_title'] ?? '') : '';
+    $statsHeadingValue = is_array($decoded) ? (string)($decoded['stats_heading'] ?? '') : '';
+    $advantagesHeadingValue = is_array($decoded) ? (string)($decoded['advantages_heading'] ?? '') : '';
+    $achievementsHeadingValue = is_array($decoded) ? (string)($decoded['achievements_heading'] ?? '') : '';
+    $infrastructureHeadingValue = is_array($decoded) ? (string)($decoded['infrastructure_heading'] ?? '') : '';
+    $infrastructureTextValue = is_array($decoded) ? (string)($decoded['infrastructure_text'] ?? '') : '';
+
+    $statRows = [];
+    if (is_array($decoded) && !empty($decoded['stats']) && is_array($decoded['stats'])) {
+        foreach ($decoded['stats'] as $r) {
+            if (!is_array($r)) {
+                continue;
+            }
+            $statRows[] = [
+                'icon' => (string)($r['icon'] ?? ''),
+                'value' => (string)($r['value'] ?? ''),
+                'label' => (string)($r['label'] ?? ''),
+                'color' => (string)($r['color'] ?? ''),
+            ];
+        }
+    }
+    while (count($statRows) < 8) {
+        $statRows[] = ['icon' => '', 'value' => '', 'label' => '', 'color' => ''];
+    }
+
+    $advRows = [];
+    if (is_array($decoded) && !empty($decoded['advantages']) && is_array($decoded['advantages'])) {
+        foreach ($decoded['advantages'] as $r) {
+            if (!is_array($r)) {
+                continue;
+            }
+            $advRows[] = [
+                'icon' => (string)($r['icon'] ?? ''),
+                'title' => (string)($r['title'] ?? ''),
+                'text' => (string)($r['text'] ?? ''),
+                'color' => (string)($r['color'] ?? ''),
+            ];
+        }
+    }
+    while (count($advRows) < 6) {
+        $advRows[] = ['icon' => '', 'title' => '', 'text' => '', 'color' => ''];
+    }
+
+    $achRows = [];
+    if (is_array($decoded) && !empty($decoded['achievements']) && is_array($decoded['achievements'])) {
+        foreach ($decoded['achievements'] as $r) {
+            if (!is_array($r)) {
+                continue;
+            }
+            $achRows[] = [
+                'icon' => (string)($r['icon'] ?? ''),
+                'title' => (string)($r['title'] ?? ''),
+                'text' => (string)($r['text'] ?? ''),
+                'color' => (string)($r['color'] ?? ''),
+            ];
+        }
+    }
+    while (count($achRows) < 6) {
+        $achRows[] = ['icon' => '', 'title' => '', 'text' => '', 'color' => ''];
+    }
+
+    $showAboutCollege = $editItem === null || (string)($editItem['slug'] ?? '') === 'about-college';
+    $statIconOpts = cms_icon_options_stats();
+    $cardIconOpts = cms_icon_options_cards();
     $selectedAudience = (string)($editItem['audience'] ?? 'common');
     $publishFromValue = !empty($editItem['publish_from']) ? str_replace(' ', 'T', substr((string)$editItem['publish_from'], 0, 16)) : '';
     $publishToValue = !empty($editItem['publish_to']) ? str_replace(' ', 'T', substr((string)$editItem['publish_to'], 0, 16)) : '';
@@ -223,10 +372,97 @@ if ($msg): ?><div class="flash"><?= h($msg) ?></div><?php endif; ?>
     <textarea name="lead"><?= h($leadValue) ?></textarea>
     <label>Основной текст</label>
     <textarea name="body"><?= h($bodyValue) ?></textarea>
-    <label>Cover image URL</label>
-    <input name="cover_image_url" value="<?= h((string)($editItem['cover_image_url'] ?? '')) ?>">
+    <?php if ($showAboutCollege): ?>
+    <h3 style="margin-top:22px;">Экран «О колледже» в приложении</h3>
+    <p class="muted" style="margin-top:0;">Заполните блоки ниже. Цвет карточек выбирается из палитры. Пустые строки в таблицах при сохранении не учитываются.</p>
+    <label>Заголовок блока «Наша миссия»</label>
+    <input name="mission_title" value="<?= h($missionTitleValue) ?>" placeholder="Наша миссия">
+    <label>Заголовок блока «О нас»</label>
+    <input name="about_title" value="<?= h($aboutTitleValue) ?>" placeholder="О нас">
+    <label>Заголовок блока «Колледж в цифрах»</label>
+    <input name="stats_heading" value="<?= h($statsHeadingValue) ?>" placeholder="Колледж в цифрах">
+    <h4 style="margin-bottom:8px;">Колледж в цифрах — карточки</h4>
+    <div style="overflow-x:auto;">
+      <table class="cms-table" style="width:100%;border-collapse:collapse;font-size:14px;">
+        <thead>
+          <tr style="text-align:left;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:8px;">Иконка</th>
+            <th style="padding:8px;">Число</th>
+            <th style="padding:8px;">Подпись</th>
+            <th style="padding:8px;">Цвет</th>
+          </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($statRows as $row): ?>
+          <tr style="border-bottom:1px solid #f3f4f6;">
+            <td style="padding:8px;vertical-align:top;"><?= cms_render_icon_select('stat_icon[]', (string)($row['icon'] ?? ''), $statIconOpts) ?></td>
+            <td style="padding:8px;"><input name="stat_value[]" value="<?= h((string)($row['value'] ?? '')) ?>" style="width:100%;min-width:90px;"></td>
+            <td style="padding:8px;"><input name="stat_label[]" value="<?= h((string)($row['label'] ?? '')) ?>" style="width:100%;min-width:120px;"></td>
+            <td style="padding:8px;"><input type="color" name="stat_color[]" value="<?= h(adminColorForPicker((string)($row['color'] ?? ''), '#4A90E2')) ?>" style="width:100%;min-width:56px;height:40px;padding:4px;"></td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+    <label style="margin-top:16px;">Заголовок блока «Почему выбирают нас»</label>
+    <input name="advantages_heading" value="<?= h($advantagesHeadingValue) ?>" placeholder="Почему выбирают нас">
+    <h4 style="margin-bottom:8px;">Карточки преимуществ</h4>
+    <div style="overflow-x:auto;">
+      <table class="cms-table" style="width:100%;border-collapse:collapse;font-size:14px;">
+        <thead>
+          <tr style="text-align:left;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:8px;">Иконка</th>
+            <th style="padding:8px;">Заголовок</th>
+            <th style="padding:8px;">Текст</th>
+            <th style="padding:8px;">Цвет</th>
+          </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($advRows as $row): ?>
+          <tr style="border-bottom:1px solid #f3f4f6;">
+            <td style="padding:8px;vertical-align:top;"><?= cms_render_icon_select('adv_icon[]', (string)($row['icon'] ?? ''), $cardIconOpts) ?></td>
+            <td style="padding:8px;"><input name="adv_title[]" value="<?= h((string)($row['title'] ?? '')) ?>" style="width:100%;min-width:140px;"></td>
+            <td style="padding:8px;"><textarea name="adv_text[]" rows="3" style="width:100%;min-width:220px;"><?= h((string)($row['text'] ?? '')) ?></textarea></td>
+            <td style="padding:8px;"><input type="color" name="adv_color[]" value="<?= h(adminColorForPicker((string)($row['color'] ?? ''), '#283593')) ?>" style="width:100%;min-width:56px;height:40px;padding:4px;"></td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+    <label style="margin-top:16px;">Заголовок блока «Наши достижения»</label>
+    <input name="achievements_heading" value="<?= h($achievementsHeadingValue) ?>" placeholder="Наши достижения">
+    <h4 style="margin-bottom:8px;">Карточки достижений</h4>
+    <div style="overflow-x:auto;">
+      <table class="cms-table" style="width:100%;border-collapse:collapse;font-size:14px;">
+        <thead>
+          <tr style="text-align:left;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:8px;">Иконка</th>
+            <th style="padding:8px;">Заголовок</th>
+            <th style="padding:8px;">Текст</th>
+            <th style="padding:8px;">Цвет</th>
+          </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($achRows as $row): ?>
+          <tr style="border-bottom:1px solid #f3f4f6;">
+            <td style="padding:8px;vertical-align:top;"><?= cms_render_icon_select('ach_icon[]', (string)($row['icon'] ?? ''), $cardIconOpts) ?></td>
+            <td style="padding:8px;"><input name="ach_title[]" value="<?= h((string)($row['title'] ?? '')) ?>" style="width:100%;min-width:140px;"></td>
+            <td style="padding:8px;"><textarea name="ach_text[]" rows="3" style="width:100%;min-width:220px;"><?= h((string)($row['text'] ?? '')) ?></textarea></td>
+            <td style="padding:8px;"><input type="color" name="ach_color[]" value="<?= h(adminColorForPicker((string)($row['color'] ?? ''), '#FFA726')) ?>" style="width:100%;min-width:56px;height:40px;padding:4px;"></td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+    <label style="margin-top:16px;">Заголовок блока «Инфраструктура»</label>
+    <input name="infrastructure_heading" value="<?= h($infrastructureHeadingValue) ?>" placeholder="Инфраструктура">
+    <label>Текст «Инфраструктура»</label>
+    <textarea name="infrastructure_text" rows="8" placeholder="Список и описание корпусов, лабораторий…"><?= h($infrastructureTextValue) ?></textarea>
+    <?php endif; ?>
+    <input type="hidden" name="cover_image_url" value="<?= h((string)($editItem['cover_image_url'] ?? '')) ?>">
     <label>Или загрузить cover</label>
     <input id="page_cover_file" name="cover_file" type="file" accept="image/jpeg,image/png,image/webp">
+    <label><input type="checkbox" name="remove_cover_image" value="1"> Удалить текущее cover-изображение</label>
     <input id="page_cropped_cover_data" name="cropped_cover_data" type="hidden">
     <div style="max-width:480px;margin-top:8px;">
       <img id="page_crop_preview" src="" alt="" style="display:none;max-width:100%;">

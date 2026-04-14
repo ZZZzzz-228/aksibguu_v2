@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -39,35 +40,68 @@ class _DocumentSubmissionScreenState
   int _applicationId = 0;
   bool _submitted = false;
 
-  static const List<String> _allSpecialties = [
-    'Сетевое и системное администрирование',
-    'Информационные системы и программирование',
-    'Обеспечение информационной безопасности телекоммуникационных систем',
-    'Обеспечение информационной безопасности автоматизированных систем',
-    'Техническая эксплуатация и обслуживание электрического и электромеханического оборудования (по отраслям)',
-    'Специальные машины и устройства',
-    'Технология машиностроения',
-    'Мехатроника и мобильная робототехника (по отраслям)',
-    'Сооружение и эксплуатация газонефтепроводов и газонефтехранилищ (прикладная геология, горное дело, нефтегазовое дело и геодезия)',
-    'Сварочное производство',
-    'Техническое обслуживание авиационных двигателей',
-    'Контроль работы измерительных приборов',
-    'Электро- и теплоэнергетика',
-    'Аэронавигация и эксплуатация авиационной и ракетно-космической техники',
-    'Экономика и бухгалтерский учет',
-  ];
+  List<String> _specialtyTitles = const [];
+  bool _loadingSpecs = true;
+  String? _specsLoadError;
+
+  String _normTitle(String s) {
+    var t = s.trim().toLowerCase();
+    t = t
+        .replaceAll('\u2011', '-')
+        .replaceAll('\u2010', '-')
+        .replaceAll('‑', '-')
+        .replaceAll('–', '-');
+    return t.replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  String? _findMatchingTitle(String candidate) {
+    final n = _normTitle(candidate);
+    for (final t in _specialtyTitles) {
+      if (_normTitle(t) == n) return t;
+    }
+    for (final t in _specialtyTitles) {
+      if (t == candidate) return t;
+    }
+    return null;
+  }
+
+  void _mergeInitialSelections() {
+    final pending = <String>[
+      ...?widget.initialSpecialties,
+      if (widget.initialSpecialty != null && widget.initialSpecialty!.isNotEmpty) widget.initialSpecialty!,
+    ];
+    for (final p in pending) {
+      final m = _findMatchingTitle(p);
+      if (m != null) {
+        _selectedSpecialties.add(m);
+      }
+    }
+  }
+
+  Future<void> _loadSpecialtyTitles() async {
+    try {
+      final items = await AppSession.apiClient.fetchSpecialties();
+      if (!mounted) return;
+      final titles = items.map((e) => e.title).where((t) => t.isNotEmpty).toList(growable: false);
+      setState(() {
+        _specialtyTitles = titles;
+        _loadingSpecs = false;
+        _specsLoadError = null;
+        _mergeInitialSelections();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingSpecs = false;
+        _specsLoadError = 'Не удалось загрузить список специальностей.';
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    // Pre-select specialties
-    if (widget.initialSpecialties != null) {
-      _selectedSpecialties.addAll(widget.initialSpecialties!);
-    }
-    if (widget.initialSpecialty != null &&
-        widget.initialSpecialty!.isNotEmpty) {
-      _selectedSpecialties.add(widget.initialSpecialty!);
-    }
+    unawaited(_loadSpecialtyTitles());
   }
 
   @override
@@ -303,29 +337,51 @@ class _DocumentSubmissionScreenState
                   border: Border.all(color: Colors.grey[300]!),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Column(
-                  children: _allSpecialties.map((spec) {
-                    final checked =
-                    _selectedSpecialties.contains(spec);
-                    return CheckboxListTile(
-                      dense: true,
-                      title: Text(spec,
-                          style: const TextStyle(fontSize: 13)),
-                      value: checked,
-                      activeColor: const Color(0xFF4A90E2),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      onChanged: (val) {
-                        setState(() {
-                          if (val == true) {
-                            _selectedSpecialties.add(spec);
-                          } else {
-                            _selectedSpecialties.remove(spec);
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
+                child: _loadingSpecs
+                    ? const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    : _specsLoadError != null
+                        ? Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text(
+                              _specsLoadError!,
+                              style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                            ),
+                          )
+                        : _specialtyTitles.isEmpty
+                            ? const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Text(
+                                  'Список специальностей пуст. Попробуйте позже.',
+                                  style: TextStyle(fontSize: 13),
+                                ),
+                              )
+                            : Column(
+                                children: _specialtyTitles.map((spec) {
+                                  final checked = _selectedSpecialties.contains(spec);
+                                  return CheckboxListTile(
+                                    dense: true,
+                                    title: Text(
+                                      spec,
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                    value: checked,
+                                    activeColor: const Color(0xFF4A90E2),
+                                    controlAffinity: ListTileControlAffinity.leading,
+                                    onChanged: (val) {
+                                      setState(() {
+                                        if (val == true) {
+                                          _selectedSpecialties.add(spec);
+                                        } else {
+                                          _selectedSpecialties.remove(spec);
+                                        }
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                              ),
               ),
               const SizedBox(height: 24),
 

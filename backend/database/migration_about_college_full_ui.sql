@@ -1,0 +1,7 @@
+-- Полный текст и карточки для экрана «О колледже» хранятся в JSON.
+-- Источник правды в репозитории: backend/database/about_college_default.json
+--
+-- Применить к базе одним из способов:
+--   php backend/database/apply_about_college_json.php
+--
+-- После применения отредактируйте страницу в админке: /admin/pages.php?slug=about-college
