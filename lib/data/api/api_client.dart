@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
@@ -8,15 +9,46 @@ class ApiClient {
 
   final String baseUrl;
   String? _token;
+  final Duration _timeout = const Duration(seconds: 8);
 
   String? get token => _token;
+
+  Uri _u(String path) => Uri.parse('$baseUrl$path');
+
+  Future<http.Response> _get(String path, {Map<String, String>? headers}) async {
+    try {
+      return await http.get(_u(path), headers: headers).timeout(_timeout);
+    } on TimeoutException {
+      throw ApiException('API timeout ($_timeout) at $baseUrl');
+    }
+  }
+
+  Future<http.Response> _post(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    try {
+      return await http.post(_u(path), headers: headers, body: body).timeout(_timeout);
+    } on TimeoutException {
+      throw ApiException('API timeout ($_timeout) at $baseUrl');
+    }
+  }
+
+  Future<http.Response> _delete(String path, {Map<String, String>? headers}) async {
+    try {
+      return await http.delete(_u(path), headers: headers).timeout(_timeout);
+    } on TimeoutException {
+      throw ApiException('API timeout ($_timeout) at $baseUrl');
+    }
+  }
 
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/login'),
+    final response = await _post(
+      '/auth/login',
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'email': email,
@@ -34,7 +66,7 @@ class ApiClient {
   }
 
   Future<List<ContactItem>> fetchContacts() async {
-    final response = await http.get(Uri.parse('$baseUrl/contacts'));
+    final response = await _get('/contacts');
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(json['message']?.toString() ?? 'Failed to load contacts');
@@ -52,13 +84,13 @@ class ApiClient {
   }
 
   Future<List<VacancyItem>> fetchVacancies({String? query}) async {
-    final uri = Uri.parse('$baseUrl/vacancies').replace(
+    final uri = _u('/vacancies').replace(
       queryParameters: (query != null && query.trim().isNotEmpty)
           ? {'q': query.trim()}
           : null,
     );
 
-    final response = await http.get(uri);
+    final response = await http.get(uri).timeout(_timeout);
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(json['message']?.toString() ?? 'Failed to load vacancies');
@@ -76,7 +108,7 @@ class ApiClient {
   }
 
   Future<List<NewsItem>> fetchNews() async {
-    final response = await http.get(Uri.parse('$baseUrl/news'));
+    final response = await _get('/news');
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(json['message']?.toString() ?? 'Failed to load news');
@@ -94,7 +126,7 @@ class ApiClient {
   }
 
   Future<List<StaffMemberItem>> fetchStaff() async {
-    final response = await http.get(Uri.parse('$baseUrl/staff'));
+    final response = await _get('/staff');
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(json['message']?.toString() ?? 'Failed to load staff');
@@ -112,7 +144,7 @@ class ApiClient {
   }
 
   Future<List<StoryItem>> fetchStories() async {
-    final response = await http.get(Uri.parse('$baseUrl/stories'));
+    final response = await _get('/stories');
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(json['message']?.toString() ?? 'Failed to load stories');
@@ -128,7 +160,7 @@ class ApiClient {
   }
 
   Future<PageContentItem?> fetchPageBySlug(String slug) async {
-    final response = await http.get(Uri.parse('$baseUrl/public/pages/$slug'));
+    final response = await _get('/public/pages/$slug');
     final json = _decodeJson(response.body);
     if (response.statusCode == 404) {
       return null;
@@ -144,7 +176,7 @@ class ApiClient {
   }
 
   Future<List<SpecialtyItem>> fetchSpecialties() async {
-    final response = await http.get(Uri.parse('$baseUrl/public/specialties'));
+    final response = await _get('/public/specialties');
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(json['message']?.toString() ?? 'Failed to load specialties');
@@ -155,7 +187,7 @@ class ApiClient {
   }
 
   Future<List<EducationProgramItem>> fetchEducationPrograms() async {
-    final response = await http.get(Uri.parse('$baseUrl/public/education-programs'));
+    final response = await _get('/public/education-programs');
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(json['message']?.toString() ?? 'Failed to load education programs');
@@ -169,7 +201,7 @@ class ApiClient {
   }
 
   Future<List<PartnerItem>> fetchPartners() async {
-    final response = await http.get(Uri.parse('$baseUrl/public/partners'));
+    final response = await _get('/public/partners');
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(json['message']?.toString() ?? 'Failed to load partners');
@@ -180,7 +212,7 @@ class ApiClient {
   }
 
   Future<CareerTestPayload> fetchCareerTest() async {
-    final response = await http.get(Uri.parse('$baseUrl/public/career-test'));
+    final response = await _get('/public/career-test');
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(json['message']?.toString() ?? 'Failed to load career test');
@@ -201,8 +233,8 @@ class ApiClient {
   }
 
   Future<StudentProfileItem?> fetchStudentProfile() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/student/profile'),
+    final response = await _get(
+      '/student/profile',
       headers: _authHeaders(),
     );
     final json = _decodeJson(response.body);
@@ -217,8 +249,8 @@ class ApiClient {
   }
 
   Future<List<StudentResumeItem>> fetchStudentResumes() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/student/resumes'),
+    final response = await _get(
+      '/student/resumes',
       headers: _authHeaders(),
     );
     final json = _decodeJson(response.body);
@@ -234,8 +266,8 @@ class ApiClient {
     required String title,
     String? summary,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/student/resumes'),
+    final response = await _post(
+      '/student/resumes',
       headers: _authHeaders(contentTypeJson: true),
       body: jsonEncode({'title': title, 'summary': summary}),
     );
@@ -246,8 +278,8 @@ class ApiClient {
   }
 
   Future<void> deleteStudentResume(int id) async {
-    final response = await http.delete(
-      Uri.parse('$baseUrl/student/resumes/$id'),
+    final response = await _delete(
+      '/student/resumes/$id',
       headers: _authHeaders(),
     );
     final json = _decodeJson(response.body);
@@ -257,8 +289,8 @@ class ApiClient {
   }
 
   Future<List<StudentPortfolioItem>> fetchStudentPortfolio() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/student/portfolio'),
+    final response = await _get(
+      '/student/portfolio',
       headers: _authHeaders(),
     );
     final json = _decodeJson(response.body);
@@ -275,8 +307,8 @@ class ApiClient {
     String? description,
     String? projectUrl,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/student/portfolio'),
+    final response = await _post(
+      '/student/portfolio',
       headers: _authHeaders(contentTypeJson: true),
       body: jsonEncode({'title': title, 'description': description, 'project_url': projectUrl}),
     );
@@ -287,8 +319,8 @@ class ApiClient {
   }
 
   Future<void> deleteStudentPortfolioItem(int id) async {
-    final response = await http.delete(
-      Uri.parse('$baseUrl/student/portfolio/$id'),
+    final response = await _delete(
+      '/student/portfolio/$id',
       headers: _authHeaders(),
     );
     final json = _decodeJson(response.body);
@@ -307,8 +339,8 @@ class ApiClient {
     List<PlatformFile> files = const [],
   }) async {
     if (files.isEmpty) {
-      final response = await http.post(
-        Uri.parse('$baseUrl/public/applications'),
+      final response = await _post(
+        '/public/applications',
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'type': type,
@@ -325,7 +357,7 @@ class ApiClient {
       return (json['id'] as num?)?.toInt() ?? 0;
     }
 
-    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/public/applications'));
+    final request = http.MultipartRequest('POST', _u('/public/applications'));
     request.fields['type'] = type;
     request.fields['full_name'] = fullName;
     if (email != null && email.isNotEmpty) request.fields['email'] = email;
@@ -341,7 +373,7 @@ class ApiClient {
       }
     }
 
-    final streamed = await request.send();
+    final streamed = await request.send().timeout(_timeout);
     final response = await http.Response.fromStream(streamed);
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
