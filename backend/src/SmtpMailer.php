@@ -18,7 +18,8 @@ final class SmtpMailer
             throw new RuntimeException('SMTP config is incomplete');
         }
 
-        $socket = @fsockopen($host, $port, $errno, $errstr, 10.0);
+        $socketHost = ($port === 465) ? "ssl://{$host}" : $host;
+        $socket = @fsockopen($socketHost, $port, $errno, $errstr, 10.0);
         if (!$socket) {
             throw new RuntimeException("SMTP connect failed: {$errno} {$errstr}");
         }
@@ -28,15 +29,8 @@ final class SmtpMailer
         self::cmd($socket, 'EHLO localhost');
         $ehlo = self::readMultiline($socket);
 
-        // Для порта 465 используем SSL, для 587 - STARTTLS
-        if ($port === 465 && $encryption === 'tls') {
-            // SSL порт - включаем шифрование сразу
-            if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
-                throw new RuntimeException('Failed to enable SSL');
-            }
-            self::cmd($socket, 'EHLO localhost');
-            self::readMultiline($socket);
-        } elseif ($encryption === 'tls') {
+        // Если порт не 465, но шифрование нужно — используем STARTTLS
+        if ($port !== 465 && $encryption === 'tls') {
             if (stripos($ehlo, 'STARTTLS') === false) {
                 throw new RuntimeException('SMTP server does not support STARTTLS');
             }
